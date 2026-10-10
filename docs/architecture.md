@@ -8,8 +8,8 @@ The repository README establishes a React + Vite frontend, a NestJS API hosted o
 
 ```mermaid
 flowchart LR
-    P[Player browser] -->|HTTPS| WEB[React + Vite frontend]
-    WEB -->|HTTPS JSON API| API[NestJS API on Render]
+    P[Player browser] -->|HTTPS| WEB[React + Vite frontend on Vercel]
+    WEB -->|Same-origin /api proxy| API[NestJS API on Render]
     API --> DB[(MongoDB Atlas)]
     HS[Always-on home server: daily job + Gemma container] -->|Outbound authenticated HTTPS: pool and verification results| API
     HS -->|Outbound polling for verification jobs| API
@@ -28,12 +28,13 @@ flowchart LR
 - Presents the Trinidad daily quest board, quest details, acceptance, evidence submission, verification result, and server-returned XP. Manual Tobago selection is a stretch goal.
 - Displays the pool's actual date when serving a previous pool. Shows a dated completion marker such as `Completed yesterday` without disabling re-acceptance.
 - Returns each player's most recent completion date for each quest instance as board metadata; the marker does not alter quest availability.
-- Calls the API with credentialed requests to preserve the HttpOnly guest cookie and treats backend state as authoritative. `VITE_API_BASE_URL` configures the API origin and `/api` prefix.
+- Calls the API with credentialed requests to preserve the HttpOnly guest cookie and treats backend state as authoritative. Local development uses `VITE_API_BASE_URL`; production calls same-origin `/api`.
 - Keeps submitted evidence in component memory only; it is not persisted in browser storage or logged.
 - Keeps the player experience usable when voice playback is missing or blocked.
 - Does not contain database credentials, model credentials, or ElevenLabs secrets.
 - For local development, the API must set `FRONTEND_ORIGIN` to the exact Vite origin (`http://localhost:5173` by default); credentialed CORS never uses a wildcard.
 - On startup, requests `GET /api/quests/active` after reusing or creating the guest session. The API returns the active acceptance snapshot and latest submission status without evidence; an empty response returns the player to the quest board.
+- Vercel rewrites `/api/*` to the Render API while keeping the browser URL on the frontend origin. This makes the guest cookie first-party for mobile browsers that restrict third-party cookies. Keep the external API rewrite before the SPA fallback rewrite in `frontend/vercel.json`.
 
 ### NestJS API on Render
 

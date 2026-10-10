@@ -40,10 +40,11 @@ export class SessionsController {
     );
 
     if (session.cookieToken) {
+      const isProduction = process.env.NODE_ENV === 'production';
       response.cookie(GUEST_SESSION_COOKIE, session.cookieToken, {
         httpOnly: true,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        sameSite: isProduction ? 'none' : 'lax',
+        secure: isProduction,
         path: '/',
         maxAge: GUEST_SESSION_MAX_AGE_MS,
       });

@@ -45,7 +45,9 @@ The MVP should provide one complete, testable player loop across **Trinidad**. T
 - Accept one quest and see its active state. Only one quest may be active per player at a time; after completion or expiry, another can be accepted.
 - Show a minimal active-quest screen with the task, safety guidance, and a clear return-to-submit action so the player can put the phone away.
 - Complete the activity away from the screen. “Offline” means intentionally putting the phone away, not offline app support or background synchronization.
-- Submit a short written account as the **single MVP evidence type**. Defer photos until the core loop has been validated.
+- Submit a short written account as the **single MVP evidence type**, limited
+  to 2,000 characters after trimming leading and trailing whitespace. Defer
+  photos until the core loop has been validated.
 - Have Gemma assess the evidence against the quest's stated completion criteria.
 - Require a connection to accept a quest and submit evidence. If the service is unreachable, tell the player; they may complete the activity away from the screen and submit once they are online again. If Gemma is unavailable or returns invalid output, retain the submission as pending/retryable and award no XP.
 - Award XP only after verified completion; show the result in quest history and a simple player progression view. Award XP at most once per player per quest instance, even if the player accepts that same instance again.
@@ -80,7 +82,21 @@ State transitions and duplicate submissions must be handled by the API so a retr
 
 Evidence should be proportionate to the activity. For the MVP, use a short written answer or reflection, and design quests so that text can reasonably address their completion criteria. The quest must state what counts as acceptable evidence before acceptance. Photo evidence is deferred.
 
-Gemma should evaluate only the submitted evidence against the quest's criteria and return a structured result with status (`verified`, `retry`, or `review`), a short reason, confidence, and failed criteria where applicable. The backend validates the response and applies the outcome. Malformed output, model failure, or low confidence must not award XP. `review` remains pending and retryable in the MVP; manual review is deferred. The product must not imply that AI verification proves identity, time, or physical presence.
+Gemma should evaluate only the accepted quest snapshot, its completion criteria,
+and the submitted evidence, then return a structured result with status
+(`verified`, `retry`, or `review`), a short reason, confidence, and failed
+criteria where applicable. The backend validates the response and applies the
+outcome. The initial minimum confidence is 0.75; lower-confidence output is
+treated as `review`. Malformed output and model failure remain retryable and
+cannot award XP. `review` does not award XP; manual review is deferred. The
+product must not imply that AI verification proves identity, time, or physical
+presence.
+
+The configured local Ollama model is `gemma4:e2b-it-qat`. One disposable
+end-to-end inference returned a valid `review` assessment, which the API
+stored without XP because the sample evidence did not establish the quest
+criteria. Hosted worker configuration and broader model behavior remain
+unverified.
 
 A submitted text cannot reliably prove identity, time, or physical location. Do not present AI verification as fraud-proof. Avoid collecting GPS or identity data for the MVP. Delete submitted evidence text 30 days after submission while retaining verification metadata; pending attempts expire without XP at that point. Image uploads are out of scope; if added later, define size/type limits, retention, access controls, and deletion behavior before launch.
 
@@ -94,11 +110,12 @@ The MVP covers Trinidad as a whole. Manual selection of Tobago is a stretch goal
 
 Do not make a quest depend on a precise address or private property unless the player has a clear, safe way to access it.
 
-## Decisions required before implementation
+## Remaining implementation and test decisions
 
-- Select the exact Gemma model/version after checking home-server hardware.
-- Confirm the initial evidence text limit and verification confidence threshold during implementation.
-- Finalize guest-cookie/session implementation details and the scheduled evidence deletion job.
+- Tune the initial 0.75 verification confidence threshold after playtesting.
+- Configure the hosted worker secret and matching lease duration before
+  enabling verification against the hosted API.
+- Implement the scheduled evidence deletion job.
 
 ## Success criteria
 

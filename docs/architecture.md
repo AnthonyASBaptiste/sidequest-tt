@@ -25,12 +25,15 @@ flowchart LR
 
 ### React + Vite frontend
 
-- Presents the Trinidad daily quest board, quest details, acceptance, evidence submission, completion result, history, and total XP. Manual Tobago selection is a stretch goal.
+- Presents the Trinidad daily quest board, quest details, acceptance, evidence submission, verification result, and server-returned XP. Manual Tobago selection is a stretch goal.
 - Displays the pool's actual date when serving a previous pool. Shows a dated completion marker such as `Completed yesterday` without disabling re-acceptance.
 - Returns each player's most recent completion date for each quest instance as board metadata; the marker does not alter quest availability.
-- Calls the API over HTTPS and treats backend state as authoritative.
+- Calls the API with credentialed requests to preserve the HttpOnly guest cookie and treats backend state as authoritative. `VITE_API_BASE_URL` configures the API origin and `/api` prefix.
+- Keeps submitted evidence in component memory only; it is not persisted in browser storage or logged.
 - Keeps the player experience usable when voice playback is missing or blocked.
 - Does not contain database credentials, model credentials, or ElevenLabs secrets.
+- For local development, the API must set `FRONTEND_ORIGIN` to the exact Vite origin (`http://localhost:5173` by default); credentialed CORS never uses a wildcard.
+- On startup, requests `GET /api/quests/active` after reusing or creating the guest session. The API returns the active acceptance snapshot and latest submission status without evidence; an empty response returns the player to the quest board.
 
 ### NestJS API on Render
 
@@ -60,7 +63,12 @@ The API owns transitions and enforces a unique completion per acceptance and one
 
 ### Local Gemma service and model
 
-For home-server communication, the worker submits the generated pool, polls Render for pending verification jobs, then posts structured model results to the API for validation. Use HTTPS with a dedicated service credential and request signing/replay protection. Do not expose an inbound model port.
+For home-server communication, the worker submits the generated pool, claims
+pending verification jobs from Render, then posts structured model results to
+the API for validation. Verification worker endpoints use HTTPS and a dedicated
+`VERIFICATION_WORKER_SECRET` bearer credential. Each claim is atomic and
+time-limited; only the current claim token can return an assessment. Do not
+expose an inbound model port or give the worker MongoDB credentials.
 
 Gemma is the product AI, responsible for:
 
@@ -85,11 +93,54 @@ Example assessment contract (illustrative):
 }
 ```
 
-Allowed status values are `verified`, `retry`, and `review`. The contract must also define the reason length, confidence range, and failed-criteria shape. Confidence thresholds and retry behavior belong in application code, not in the model. No valid structured `verified` result means no XP award. On timeout, outage, malformed output, or low confidence, retain the attempt as pending/retryable and let the home-server worker retry verification after the service recovers; do not convert an error into an automatic pass. Manual review is deferred for the MVP.
+Allowed status values are `verified`, `retry`, and `review`. The API requires a
+short reason (up to 500 characters), confidence in `[0, 1]`, and failed
+criteria drawn from the accepted snapshot. The initial confidence threshold is
+`0.75`; a lower score is stored as `review`, not as a pass. Invalid output,
+timeout, and model failure award no XP; invalid results remain pending and
+worker failures can release the claim or allow its lease to expire. A `retry`
+assessment returns the acceptance to player-retryable state while retaining
+its active marker. A `review` result leaves the acceptance submitted and
+active. No valid structured `verified` result means no XP award.
 
 #### Local-to-hosted connectivity decision
 
-A local model is not automatically reachable from an API deployed on Render. Gemma runs in a container on the always-on home server. A daily generation job runs there and sends candidates to an authenticated NestJS API endpoint over HTTPS; the API validates and persists the pool in Atlas. The model container has no Atlas credentials and no direct database access. For verification, the API records pending work; the home-server worker polls an authenticated endpoint, evaluates each submission locally, then posts the structured result to the API. Do not expose an inbound model port. If the home server is unavailable, the API must not publish a false or partial new pool; evidence verification remains pending/retryable and cannot award XP.
+A local model is not automatically reachable from an API deployed on Render.
+Gemma is intended to run in a container on the always-on home server. A daily
+generation job runs there and sends candidates to an authenticated NestJS API
+endpoint over HTTPS; the API validates and persists the pool in Atlas. The
+model container and worker have no Atlas credentials or direct database access.
+For verification, the API exposes authenticated claim, assessment-result, and
+worker-failure endpoints. Claiming atomically leases a pending attempt; lease
+expiry makes an unreported failure retryable. The claim contains the accepted
+quest snapshot, criteria, and evidence. The worker sends only those three
+inputs to Gemma, then returns the structured assessment with its claim token.
+The API validates the response and owns every state transition and XP award.
+Render never opens a connection to the home network. If the home server or
+model is unavailable, attempts remain pending/retryable and earn no XP.
+
+The repository contains the NestJS worker API and a small Node.js home-server
+worker in `backend/worker/`. The worker polls the claim endpoint, calls a
+configurable Ollama-compatible `/api/chat` endpoint, validates the structured
+assessment, and submits a result or bounded failure code. Configure
+`VERIFICATION_WORKER_SECRET` in the API and worker, and use the same
+`VERIFICATION_LEASE_SECONDS` value on both. The home-server deployment must
+supply its HTTPS API origin, local runtime base URL, and exact installed model
+name through environment variables. No model version or credential is
+embedded in the repository.
+
+The worker sends only the accepted quest snapshot, completion criteria, and
+evidence to the local runtime. It never sends attempt IDs, claim tokens, or
+API credentials to the model; it has no MongoDB access and exposes no inbound
+port. API and model requests have bounded timeouts. Failed or malformed model
+results are returned using the API failure contract, while failed result
+delivery is retried only within the lease window; the API lease remains
+authoritative after worker failure. A disposable local end-to-end run with
+Ollama's installed `gemma4:e2b-it-qat` completed in 13.484 seconds. The model
+returned a valid `review` assessment, which the local API stored without
+awarding XP because the sample evidence did not establish the quest criteria.
+This verifies one local inference/result path, not a hosted deployment or
+general model reliability.
 
 The player selects from the latest published daily pool. There is no player-triggered regeneration. If today's generation fails, the UI serves the latest pool with its actual date and a clear previous-pool label. If no pool has ever been published, show an unavailable state.
 
@@ -145,31 +196,41 @@ sequenceDiagram
     API->>DB: Load accepted quest and criteria
     API->>DB: Store pending verification job
     API-->>UI: Pending result
-    loop Poll for pending jobs
-        Worker->>API: Poll for queued jobs
-    end
-    API-->>Worker: Evidence and accepted quest criteria
-    Worker->>Model: Assess locally
+    Worker->>API: Claim pending attempt (HTTPS bearer auth)
+    API-->>Worker: Lease token, snapshot, criteria, and private evidence
+    Worker->>Model: Assess snapshot + criteria + evidence only
     Model-->>Worker: Structured assessment
-    Worker->>API: Post signed assessment
+    Worker->>API: Return assessment + lease token
     API->>API: Validate response and apply thresholds
     alt Verified
-        API->>DB: Record unique completion and XP ledger award once
+        API->>DB: Transaction: complete attempt and acceptance, clear active quest, award XP once
+        API-->>Worker: Verified result and awarded XP
+        UI->>API: Poll attempt status
+        API-->>UI: Verified result
     else Retry, review, or inference unavailable
-        API->>DB: Record attempt without XP
+        API->>DB: Store retry/review result or release failed claim without XP
+        API-->>Worker: Result or retryable failure
+        UI->>API: Poll attempt status
+        API-->>UI: Status and reason; never evidence
     end
-    UI->>API: Poll attempt status
-    API-->>UI: Result and next step
-    UI-->>Player: Show result
 ```
 
-Daily generation is initiated on the home server and pushed to the hosted API; the API remains the only Atlas writer. The home-server worker polls the hosted API for verification jobs and posts results over outbound authenticated HTTPS. Render never needs to open a connection to the home network. Protect service calls with a dedicated secret, timestamped signatures, and replay protection; never expose a model port.
+Daily generation is initiated on the home server and pushed to the hosted API;
+the API remains the only Atlas writer. The home-server worker claims jobs and
+posts results over outbound authenticated HTTPS. Render never opens a
+connection to the home network. Keep the worker secret and per-claim token out
+of model prompts and logs; never expose a model port.
 
 ## Daily pool and repeat completion behavior
 
 The home-server job starts at 04:00 in `America/Port_of_Spain`. If today's batch fails validation or generation, serve the most recently published batch with its actual date and a clear previous-pool label; do not publish partial content. Keep that pool available until a newer pool is successfully published. On each player's board, mark any matching quest they completed yesterday as `Completed yesterday`; show the completion date for older completions. Keep the re-accept action available. XP is granted only for the player's first verified completion of that quest instance.
 
-The MVP awards 25 XP for Common, 50 for Uncommon, and 100 for Rare. It shows total XP and completion history; levels are deferred. Submitted text is deleted 30 days after submission, while verification metadata is retained. A submission still pending at day 30 expires without XP.
+The MVP awards 25 XP for Common, 50 for Uncommon, and 100 for Rare. It shows
+total XP and completion history; levels are deferred. XP awards are unique per
+guest and quest instance and are written with completion state and the user XP
+total in one Atlas transaction. Submitted text is deleted 30 days after
+submission, while verification metadata is retained. A submission still
+pending at day 30 expires without XP.
 
 ## MVP screen-away behavior
 

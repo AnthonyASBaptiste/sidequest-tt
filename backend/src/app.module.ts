@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { DatabaseConnectionService } from './database/database-connection.service.js';
 import { schemas } from './database/schemas/index.js';
 import { validateEnvironment } from './environment.js';
+import { QuestsModule } from './quests/quests.module.js';
+import { SessionsModule } from './sessions/sessions.module.js';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { validateEnvironment } from './environment.js';
       }),
     }),
     MongooseModule.forFeature(schemas),
+    SessionsModule,
+    QuestsModule,
   ],
   providers: [DatabaseConnectionService],
 })

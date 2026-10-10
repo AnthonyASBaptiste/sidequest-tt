@@ -1,7 +1,12 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Schema as MongooseSchema } from 'mongoose';
 import type { Types } from 'mongoose';
-import { QUEST_DIFFICULTIES, QUEST_RARITIES } from './quest-template.schema.js';
+import {
+  QUEST_DIFFICULTIES,
+  QUEST_RARITIES,
+  type QuestDifficulty,
+  type QuestRarity,
+} from './quest-template.schema.js';
 
 const RARITY_XP: Record<string, number> = {
   common: 25,
@@ -57,7 +62,7 @@ export class Quest {
   durationMinutes!: number;
 
   @Prop({ type: String, required: true, enum: QUEST_DIFFICULTIES })
-  difficulty!: string;
+  difficulty!: QuestDifficulty;
 
   @Prop({
     type: String,
@@ -70,7 +75,7 @@ export class Quest {
       message: 'Quest XP must match its rarity award.',
     },
   })
-  rarity!: string;
+  rarity!: QuestRarity;
 
   @Prop({ type: Number, required: true, enum: [25, 50, 100] })
   xp!: number;

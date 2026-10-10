@@ -31,6 +31,9 @@ export class SubmissionAttempt {
   @Prop({ type: Number, required: true, min: 1 })
   attemptNumber!: number;
 
+  @Prop({ type: String, required: true, match: /^[a-f0-9]{64}$/ })
+  idempotencyKeyHash!: string;
+
   @Prop({ type: String, required: true })
   evidenceText!: string;
 
@@ -51,6 +54,21 @@ export class SubmissionAttempt {
   @Prop({ type: Date, required: true })
   evidenceDeleteAt!: Date;
 
+  @Prop({ type: String, match: /^[a-f0-9]{64}$/ })
+  verificationClaimTokenHash?: string;
+
+  @Prop({ type: Date })
+  verificationClaimExpiresAt?: Date;
+
+  @Prop({ type: String, match: /^[a-f0-9]{64}$/ })
+  lastVerificationClaimTokenHash?: string;
+
+  @Prop({ type: Number, required: true, min: 0, default: 0 })
+  verificationClaimCount!: number;
+
+  @Prop({ type: Number, required: true, min: 0, enum: [0, 25, 50, 100], default: 0 })
+  xpAwarded!: number;
+
   @Prop({ type: Date, required: true, default: Date.now })
   createdAt!: Date;
 
@@ -65,6 +83,18 @@ SubmissionAttemptSchema.index(
   { unique: true, name: 'submission_attempt_number_unique' },
 );
 SubmissionAttemptSchema.index(
+  { idempotencyKeyHash: 1 },
+  {
+    unique: true,
+    sparse: true,
+    name: 'submission_attempt_idempotency_key_unique',
+  },
+);
+SubmissionAttemptSchema.index(
   { status: 1, evidenceDeleteAt: 1 },
   { name: 'submission_attempts_status_evidence_delete_at' },
+);
+SubmissionAttemptSchema.index(
+  { status: 1, verificationClaimExpiresAt: 1, createdAt: 1 },
+  { name: 'submission_attempts_verification_claim_queue' },
 );

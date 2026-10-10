@@ -12,7 +12,8 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "db:check": "npm run build && node dist/check-database.js",
-    "db:seed": "npm run build && node dist/seed-sample-data.js"
+    "db:seed": "npm run build && node dist/seed-sample-data.js",
+    "worker:verify": "node --env-file=worker/.env worker/verify-worker.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -20,6 +21,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/mongoose": "^11.0.3",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/swagger": "^11.4.7",
     "mongoose": "^9.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
@@ -30,5 +32,8 @@
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "js-yaml": "^5.4.3"
   }
 }

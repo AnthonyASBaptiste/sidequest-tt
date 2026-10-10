@@ -25,8 +25,10 @@
 - An accepted quest remains tied to the exact quest instructions and criteria
   the player accepted, even if its daily board entry later expires.
 - The board response includes the pool date, whether it is being served as a
-  fallback, and the player's most recent completion date for each quest. These
-  are response metadata; a completion marker does not disable acceptance.
+  fallback, and per quest the player's `lastCompletedAt` (ISO 8601 timestamp or
+  `null`) and `completedYesterday` boolean. “Yesterday” uses the
+  `America/Port_of_Spain` calendar date. These are response metadata; a
+  completion marker does not remove or disable a quest.
 
 ## Collections
 
@@ -42,7 +44,7 @@ pool dates are calendar dates in `America/Port_of_Spain`.
   name: String,                  // optional display name
   auth: {
     provider: "guest",
-    subject: String               // unique server-issued guest identity
+    subject: String               // SHA-256 hash of the random guest cookie token
   },
   region: "Trinidad",             // Tobago is a stretch goal
   preferences: {},                // no MVP preference controls
@@ -53,10 +55,23 @@ pool dates are calendar dates in `America/Port_of_Spain`.
 ```
 
 Do not store credentials in this collection. The API creates a guest identity
-on first use and issues a secure, HttpOnly cookie. No email or password is
-collected. Progress is tied to that browser and cannot be recovered across
-browsers/devices in the MVP; sign-in and recovery are deferred. Enforce
-uniqueness on `(auth.provider, auth.subject)`.
+on first use and issues a 32-byte cryptographically random token as a
+one-year, `HttpOnly`, `SameSite=Lax`, `Path=/` cookie, with `Secure` enabled
+in production. The API stores only the token's SHA-256 hash in `auth.subject`;
+the raw token is neither persisted nor logged. Expired or unknown tokens do
+not authenticate a guest. No email or password is collected. Progress is tied
+to that browser and cannot be recovered across browsers/devices in the MVP;
+sign-in and recovery are deferred. Enforce uniqueness on
+`(auth.provider, auth.subject)`.
+
+After restoring or creating a guest session, the frontend requests
+`GET /api/quests/active`. This guest-protected, read-only response contains
+`activeAcceptance` and `latestSubmission`, each nullable. The acceptance
+contains its ID, quest ID, status, `acceptedAt`, and immutable `questSnapshot`.
+The latest submission contains the same status and feedback fields returned by
+the single-attempt status route, but never evidence text or worker credentials.
+If no acceptance has an `activeUserId` for the guest, both response fields are
+`null`; acceptance and completion rules are unchanged.
 
 ### `questTemplates`
 
@@ -222,7 +237,8 @@ insufficient evidence.
   _id: ObjectId,
   acceptanceId: ObjectId,
   attemptNumber: Number,
-  evidenceText: String,
+  idempotencyKeyHash: String,     // SHA-256 of the required Idempotency-Key
+  evidenceText: String,           // trimmed, 1–2,000 Unicode characters
   status: "pending" | "verified" | "retry" | "review",
   verification: {
     reason: String | null,
@@ -232,11 +248,61 @@ insufficient evidence.
     evaluatedAt: Date | null
   },
   lastErrorCode: String | null,
+  verificationClaimTokenHash: String | null,       // current worker claim only
+  verificationClaimExpiresAt: Date | null,
+  lastVerificationClaimTokenHash: String | null,   // idempotent result replay
+  verificationClaimCount: Number,
+  xpAwarded: Number,                              // 0 when no new award was made
   evidenceDeleteAt: Date,         // 30 days after submission
   createdAt: Date,
   updatedAt: Date
 }
 ```
+
+Each request must include an `Idempotency-Key` of 1–128 visible ASCII
+characters. Store only its SHA-256 hash, unique across submission attempts.
+Replaying a key for its original acceptance and same evidence returns that
+attempt; trying to reuse it with different evidence or for another acceptance
+returns a conflict and creates no attempt.
+Attempts are numbered per acceptance. Creating an attempt and changing the
+acceptance from `accepted` or `retry` to `submitted` is one atomic database
+transaction; the acceptance retains its `activeUserId`. Evidence text is
+trimmed and must contain 1–2,000 Unicode characters.
+
+The home-server worker authenticates to the API with a shared bearer secret
+and claims pending attempts through an atomic, expiring lease. Only the current
+claim-token holder can return an assessment. Store only hashes of claim
+tokens. A worker timeout/failure releases the claim or lets its lease expire;
+it does not verify an attempt or award XP. A claim exposes the accepted quest
+snapshot, its completion criteria, and private evidence to the authenticated
+worker. The worker sends only those inputs to Gemma and never receives Atlas
+credentials.
+
+The repository's home-server worker uses Node.js and an Ollama-compatible
+`POST /api/chat` structured-output request. Its API origin, shared bearer
+secret, lease duration, local runtime URL, model name, polling interval, and
+bounded request timeouts are environment configuration. The API origin uses
+HTTPS except for loopback development; local cleartext HTTP is restricted to
+loopback. The worker validates the returned JSON before posting it and reports
+invalid output or model failures using the API failure endpoint. If result
+delivery remains unavailable until the claim expires, the API lease makes the
+attempt claimable again. No model is selected or claimed as tested here.
+
+The API accepts an assessment containing exactly `status`, `reason`,
+`confidence`, and `failedCriteria`. Status is `verified`, `retry`, or `review`;
+reason is non-empty and at most 500 characters; confidence is from 0 to 1;
+failed criteria must match the accepted snapshot. The initial minimum
+confidence is 0.75. Lower confidence is stored as `review`. Invalid output
+releases the claim and leaves the attempt pending. A `retry` result returns
+the acceptance to `retry` while retaining `activeUserId`. `review` leaves the
+acceptance submitted and active. Neither result awards XP.
+
+For `verified`, one Atlas transaction marks the attempt and acceptance
+complete, clears `activeUserId`, creates a completion, and creates the unique
+XP award and increments `users.xp` only if that guest has not already earned XP
+for the quest instance. A replayed result is idempotent; concurrent attempts
+are constrained by the unique XP award index. A guest status endpoint returns
+verification feedback without returning evidence text.
 
 After 30 days from submission, delete `evidenceText` and retain only outcome
 metadata. If verification is still pending at that point, expire the attempt
@@ -295,7 +361,9 @@ weaken the exactly-once requirement.
 - `questAcceptances`: unique `{ userId: 1, questId: 1, acceptanceNumber: 1 }`;
   unique sparse `{ activeUserId: 1 }` while an acceptance is active; lookup by
   `{ userId: 1, status: 1, acceptedAt: -1 }`.
-- `submissionAttempts`: unique `{ acceptanceId: 1, attemptNumber: 1 }`.
+- `submissionAttempts`: unique `{ acceptanceId: 1, attemptNumber: 1 }` and
+  unique sparse `{ idempotencyKeyHash: 1 }`; verification queue lookup on
+  `{ status: 1, verificationClaimExpiresAt: 1, createdAt: 1 }`.
 - `questCompletions`: unique `{ acceptanceId: 1 }`; history lookup on
   `{ userId: 1, questId: 1, completedAt: -1 }` for dated completion badges.
 - `xpAwards`: unique `{ completionId: 1 }` and unique `{ userId: 1, questId: 1 }`;
@@ -307,8 +375,9 @@ are referenced by history and must remain consistent. A scheduled job removes
 evidence text after 30 days but retains attempt metadata. Define a guest
 profile deletion path before public playtesting.
 
-## Still to decide before implementation
+## Still to decide before operations
 
-- Exact Gemma runtime/model version after checking home-server hardware.
-- Evidence text length limit and verification confidence threshold.
-- Cookie implementation details and the scheduled evidence deletion job.
+- Tune the initial 0.75 verification confidence threshold after playtesting.
+- The scheduled evidence deletion job.
+- Configure the hosted API's worker secret and lease to match the home-server
+  worker before running verification against the hosted service.

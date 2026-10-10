@@ -50,6 +50,48 @@ MongoDB Atlas persists game state through the API.
 
 ## Project status
 
-The repository is initialized and the product direction and proposed
-architecture are documented. Implementation and deployment are not yet in
-place.
+The NestJS API now supports guest sessions, the Trinidad quest board,
+acceptance, text evidence, worker verification, and server-authoritative XP.
+The home-server worker has completed a real local inference using Ollama model
+`gemma4:e2b-it-qat`. A small React/Vite player flow is available in `frontend/`;
+the hosted Render API and frontend deployment are not configured yet.
+
+## Run locally
+
+Start the API using the existing Atlas connection:
+
+```sh
+cd backend
+npm install
+npm run start:dev
+```
+
+In another terminal, start the player app:
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend defaults to `http://localhost:3000/api`. Copy
+`frontend/.env.example` to `frontend/.env` to set `VITE_API_BASE_URL` to a
+different API origin and `/api` prefix. For local browser requests, set the
+ignored `backend/.env` value `FRONTEND_ORIGIN=http://localhost:5173`. Frontend
+configuration contains no worker, database, or model credentials.
+
+The player flow uses a browser guest cookie, displays the current or dated
+fallback quest pool, shows quest criteria and safety guidance before
+acceptance, submits text reflections, and polls server verification status.
+Evidence remains in page memory only and is not stored in browser storage.
+Verified XP is displayed only from the API response.
+
+The local browser flow has been verified through a pending submission. Active
+quests and their latest submission status are restored after a page refresh.
+The frontend's verified, retry, and review states have not yet been exercised
+in-browser. Hosted
+verification and outdoor playtesting remain unverified. For hosted worker
+verification, set `VERIFICATION_WORKER_SECRET` on both Render and the
+home-server worker to the same value and set `VERIFICATION_LEASE_SECONDS=120`
+on both; configure the worker's `API_BASE_URL` with the actual deployed API
+origin rather than a placeholder.

@@ -239,6 +239,48 @@ a:focus-visible {
   color: #4d411f;
 }
 
+.recent-completion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 20px;
+  margin-top: 20px;
+  border: 1px solid #c8d4b9;
+  border-radius: 10px;
+  background: #edf3e4;
+  color: var(--ink);
+}
+
+.recent-completion .eyebrow {
+  margin: 0 0 4px;
+  color: var(--green);
+}
+
+.recent-completion h2,
+.recent-completion p:not(.eyebrow) {
+  margin: 0;
+}
+
+.recent-completion h2 {
+  font-family: var(--serif);
+  font-size: 20px;
+}
+
+.recent-completion p:not(.eyebrow) {
+  margin-top: 4px;
+  color: #536254;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.recent-completion > strong {
+  color: var(--green);
+  font-family: var(--serif);
+  font-size: 23px;
+  white-space: nowrap;
+}
+
 .notice-mark {
   font-size: 17px;
   line-height: 1;
@@ -797,6 +839,17 @@ a:focus-visible {
 }
 
 @media (max-width: 720px) {
+  .recent-completion {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 15px;
+  }
+
+  .recent-completion .text-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
   .app-shell {
     width: min(100% - 28px, 560px);
   }

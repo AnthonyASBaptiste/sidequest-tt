@@ -44,7 +44,7 @@ export class QuestsController {
   @UseGuards(GuestSessionGuard)
   @ApiOkResponse({
     description:
-      'Returns the guest’s active acceptance and its latest submission status, if any.',
+      'Returns the guest’s active acceptance and latest submission, or the most recent completed quest when no quest is active. Evidence text is never returned.',
     type: ActiveQuestResponseDto,
   })
   @ApiUnauthorizedResponse({

@@ -20,13 +20,13 @@ unblock the submission or are requested.
 | Guest identity and completion markers | Browser guest sessions use a hashed token; the board exposes per-player completion metadata. See development log 006. | Describe lightweight identity and replay-friendly game behavior. |
 | Quest acceptance | Acceptance snapshots preserve the offered quest; a unique active-user index handles concurrent one-active-quest requests. See development log 007. | Highlight server-authoritative state and idempotent/concurrent behavior. |
 | Text evidence submission | Numbered pending attempts use a 2,000-character limit, idempotency keys, atomic state changes, and 30-day deletion metadata. See development log 008. | Explain privacy-conscious evidence capture and retry-safe persistence. |
-| Verification and XP transition | The API exposes authenticated, leased worker claims/results, validates assessments at an initial 0.75 confidence threshold, and transactionally completes quests and awards fixed XP once. A disposable local run with Ollama `gemma4:e2b-it-qat` took 13.484 seconds; the model returned a valid `review` assessment and the API stored it without XP for insufficient sample evidence. The worker/API flow was run locally against Atlas; hosted Render settings and broader model behavior remain unverified. See [development log 009](development-log/009-gemma-evidence-verification.md) and [010](development-log/010-local-gemma-verification.md). | Show the API/model boundary and exactly-once game state while accurately describing the one local model result. |
+| Verification and XP transition | The API exposes authenticated, leased worker claims/results, validates assessments at an initial 0.75 confidence threshold, and transactionally completes quests and awards fixed XP once. A disposable local run with Ollama `gemma4:e2b-it-qat` took 13.484 seconds and returned `review` without XP. On 2026-10-10, the same model processed one real hosted submission in 12.377 seconds; Render accepted the worker result. The final assessment category was not captured in worker logs. See development logs 009, 010, and 014. | Show the API/model boundary and exactly-once game state while accurately describing local and hosted evidence. |
 | Player-facing flow | A React/Vite app builds and was exercised in a browser against the local API: guest cookie, dated fallback pool, quest details and safety, acceptance, screen-away/return, text submission, and pending status. Evidence was not found in local or session storage. The disposable guest, acceptance, and submission were removed; all five seeded quests remained. See [development log 011](development-log/011-player-facing-flow.md). | Demonstrate the screen-away loop and how the frontend leaves game state and XP authoritative on the API. |
 
 These entries describe work recorded as implemented and verified in the
-development logs. The current browser run reached pending verification; it did
-not exercise the frontend's verified, retry, or review screens, and no outdoor
-playtest has been completed.
+development logs. The initial browser run reached pending verification; a
+later hosted worker run successfully returned one model assessment to Render.
+The player's final result screen and outdoor play have not been verified.
 
 ## Submission narrative to assemble
 
@@ -35,16 +35,16 @@ playtest has been completed.
 - **What makes it distinct:** quests are gameplay, not itineraries; Gemma is
   intended to be the player-facing AI core, while the API enforces game rules.
 - **Architecture:** local Gemma/home-server worker, NestJS API, MongoDB Atlas,
-  and the Vite frontend. The local worker/API/Gemma inference and the
-  player-to-pending-submission flow have been verified; hosted deployment is
-  still unconfigured.
+  and the Vite frontend. One hosted worker/API/Gemma inference has been
+  verified; ongoing worker availability and the player's final result screen
+  still need verification.
 - **Technical decisions worth showing:** dated fallback pools, immutable
   acceptance snapshots, one-active-quest enforcement, idempotent submissions,
   transaction-backed state changes, and evidence retention metadata.
 - **Honest demo status:** include only features that are running and verified;
-  state that one local Gemma assessment returned `review` and earned no XP,
-  the browser flow reached pending status and restored it after refresh,
-  hosted verification is not configured, and outdoor play is untested.
+  state that one local assessment returned `review` and earned no XP, one
+  hosted assessment was accepted by the API (its final category was not
+  captured), and outdoor play is untested.
 - **Evidence to collect:** working demo URL, repository link, screenshots or
   short demo capture, and actual playtest observations if available.
 
@@ -52,15 +52,15 @@ playtest has been completed.
 
 - Community/library research and other optional technical “wisdom.”
 - A public build-in-public cadence or progress posts.
-- Hosted verification configuration and the evidence deletion job.
+- Persistent worker startup/monitoring and the evidence deletion job.
 - Any claim about user enjoyment or successful outdoor play until tested with
   players.
 
-## Hosted worker settings still required
+## Hosted worker operation
 
-Do not guess the Render API URL. On the Render API service, set
-`VERIFICATION_WORKER_SECRET` to the same strong secret used by the home-server
-worker and set `VERIFICATION_LEASE_SECONDS=120`. On the home-server worker,
-set that same `VERIFICATION_WORKER_SECRET`, `VERIFICATION_LEASE_SECONDS=120`,
-and `API_BASE_URL` to the actual deployed API origin. Keep the local model
-settings and credentials only in the worker's local environment.
+The worker's ignored local environment now points to
+`https://sidequest-tt.onrender.com`; the hosted API accepted one result using
+the configured secret and 120-second lease. The worker was stopped after that
+attempt, so start and keep `npm run worker:verify` running on the home server
+to process future submissions. Keep model settings and credentials in the
+worker's local environment.

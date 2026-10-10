@@ -14,7 +14,10 @@ import { QuestCompletion } from '../database/schemas/quest-completion.schema.js'
 import { QuestPoolBatch } from '../database/schemas/quest-pool-batch.schema.js';
 import { Quest } from '../database/schemas/quest.schema.js';
 import { SubmissionAttempt } from '../database/schemas/submission-attempt.schema.js';
-import { ActiveQuestResponseDto } from './dto/active-quest.dto.js';
+import {
+  ActiveQuestResponseDto,
+  RecentQuestCompletionDto,
+} from './dto/active-quest.dto.js';
 import { QuestAcceptanceDto } from './dto/quest-acceptance.dto.js';
 import {
   TodayQuestBoardDto,
@@ -37,6 +40,12 @@ interface LatestSubmissionRecord {
   verification: SubmissionAttempt['verification'];
   xpAwarded: number;
   createdAt: Date;
+}
+
+interface CompletionRecord {
+  acceptanceId: Types.ObjectId;
+  winningAttemptId: Types.ObjectId;
+  completedAt: Date;
 }
 
 @Injectable()
@@ -70,7 +79,11 @@ export class QuestsService {
       .exec();
 
     if (!acceptance) {
-      return { activeAcceptance: null, latestSubmission: null };
+      return {
+        activeAcceptance: null,
+        latestSubmission: null,
+        recentCompletion: await this.getRecentCompletion(userId),
+      };
     }
 
     const latestSubmission = await this.submissionAttemptModel
@@ -91,18 +104,71 @@ export class QuestsService {
     return {
       activeAcceptance: this.toAcceptanceDto(acceptance),
       latestSubmission: latestSubmission
-        ? {
-            attemptId: latestSubmission._id.toString(),
-            acceptanceId: latestSubmission.acceptanceId.toString(),
-            attemptNumber: latestSubmission.attemptNumber,
-            status: latestSubmission.status,
-            reason: latestSubmission.verification.reason,
-            confidence: latestSubmission.verification.confidence,
-            failedCriteria: [...latestSubmission.verification.failedCriteria],
-            xpAwarded: latestSubmission.xpAwarded,
-            submittedAt: latestSubmission.createdAt.toISOString(),
-          }
+        ? this.toSubmissionStatus(latestSubmission)
         : null,
+      recentCompletion: null,
+    };
+  }
+
+  private async getRecentCompletion(
+    userId: Types.ObjectId,
+  ): Promise<RecentQuestCompletionDto | null> {
+    const completion = await this.questCompletionModel
+      .findOne({ userId })
+      .select({ acceptanceId: 1, winningAttemptId: 1, completedAt: 1 })
+      .sort({ completedAt: -1 })
+      .lean<CompletionRecord>()
+      .exec();
+    if (!completion) return null;
+
+    const [acceptance, submission] = await Promise.all([
+      this.questAcceptanceModel
+        .findOne({
+          _id: completion.acceptanceId,
+          userId,
+          status: 'completed',
+        })
+        .select({ _id: 1, questId: 1, status: 1, acceptedAt: 1, questSnapshot: 1 })
+        .lean<AcceptanceRecord>()
+        .exec(),
+      this.submissionAttemptModel
+        .findOne({
+          _id: completion.winningAttemptId,
+          acceptanceId: completion.acceptanceId,
+          status: 'verified',
+        })
+        .select({
+          _id: 1,
+          acceptanceId: 1,
+          attemptNumber: 1,
+          status: 1,
+          verification: 1,
+          xpAwarded: 1,
+          createdAt: 1,
+        })
+        .lean<LatestSubmissionRecord>()
+        .exec(),
+    ]);
+
+    if (!acceptance || !submission) return null;
+    return {
+      acceptance: this.toAcceptanceDto(acceptance),
+      submission: this.toSubmissionStatus(submission),
+      completedAt: completion.completedAt.toISOString(),
+    };
+  }
+
+  private toSubmissionStatus(submission: LatestSubmissionRecord) {
+    return {
+      attemptId: submission._id.toString(),
+      acceptanceId: submission.acceptanceId.toString(),
+      attemptNumber: submission.attemptNumber,
+      status: submission.status,
+      reason: submission.verification.reason,
+      confidence: submission.verification.confidence,
+      failedCriteria: [...submission.verification.failedCriteria],
+      xpAwarded: submission.xpAwarded,
+      submittedAt: submission.createdAt.toISOString(),
     };
   }
 

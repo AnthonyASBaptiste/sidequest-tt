@@ -43,16 +43,20 @@ browser requests. Frontend configuration must not contain API worker, Atlas,
 or model secrets.
 
 `GET /api/quests/active` returns the guest's current active acceptance and its
-latest submission status, if present. The response is
-`{ "activeAcceptance": <acceptance-or-null>, "latestSubmission": <status-or-null> }`.
+latest submission status, if present. When there is no active quest, it also
+returns the most recent completed quest and its verified result. The response
+is `{ "activeAcceptance": <acceptance-or-null>, "latestSubmission":
+<status-or-null>, "recentCompletion": <completion-or-null> }`.
 The acceptance includes its ID, quest ID, status, ISO acceptance time, and
 accepted quest snapshot. The submission status uses the same fields as
 `GET /api/acceptances/:acceptanceId/submissions/:attemptId` (`attemptId`,
 `acceptanceId`, `attemptNumber`, status, verification feedback, server-awarded
-XP, and submission time). With no active quest, both fields are `null`.
-Evidence text, guest token data, and worker secrets are never included. The
-frontend calls this route after reusing or creating the guest session so an
-active quest and pending/retry/review feedback survive a page refresh.
+XP, and submission time). `recentCompletion` contains the completed acceptance
+snapshot, verified submission result, and completion time. It is returned only
+when no quest is active. Evidence text, guest token data, and worker secrets
+are never included. The frontend calls this route after reusing or creating
+the guest session so active feedback and the latest completed result survive a
+page refresh.
 
 Configure `VERIFICATION_WORKER_SECRET` to a random secret of at least 32
 characters. Set the same secret on the home-server worker. The verification

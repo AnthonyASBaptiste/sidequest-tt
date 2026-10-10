@@ -33,7 +33,7 @@ flowchart LR
 - Keeps the player experience usable when voice playback is missing or blocked.
 - Does not contain database credentials, model credentials, or ElevenLabs secrets.
 - For local development, the API must set `FRONTEND_ORIGIN` to the exact Vite origin (`http://localhost:5173` by default); credentialed CORS never uses a wildcard.
-- On startup, requests `GET /api/quests/active` after reusing or creating the guest session. The API returns the active acceptance snapshot and latest submission status without evidence; an empty response returns the player to the quest board.
+- On startup, requests `GET /api/quests/active` after reusing or creating the guest session. The API returns the active acceptance snapshot and latest submission status without evidence, or the latest completed result when no quest is active, so completion feedback survives refresh.
 - Vercel rewrites `/api/*` to the Render API while keeping the browser URL on the frontend origin. This makes the guest cookie first-party for mobile browsers that restrict third-party cookies. Keep the external API rewrite before the SPA fallback rewrite in `frontend/vercel.json`.
 
 ### NestJS API on Render

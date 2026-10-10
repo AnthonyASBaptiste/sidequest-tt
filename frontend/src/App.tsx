@@ -59,6 +59,11 @@ type VerificationStatus = {
 type ActiveQuestResponse = {
   activeAcceptance: Acceptance | null;
   latestSubmission: VerificationStatus | null;
+  recentCompletion: {
+    acceptance: Acceptance;
+    submission: VerificationStatus;
+    completedAt: string;
+  } | null;
 };
 
 type Guest = {
@@ -206,6 +211,7 @@ function App() {
   const [verification, setVerification] = useState<VerificationStatus | null>(
     null,
   );
+  const [recentCompletion, setRecentCompletion] = useState<ActiveQuestResponse['recentCompletion']>(null);
   const [evidence, setEvidence] = useState('');
   const [expandedQuest, setExpandedQuest] = useState<string | null>(null);
   const [awayMode, setAwayMode] = useState(false);
@@ -235,7 +241,8 @@ function App() {
       try {
         const activeResult =
           await apiRequest<ActiveQuestResponse>('/quests/active');
-        const { activeAcceptance, latestSubmission } = activeResult.data;
+        const { activeAcceptance, latestSubmission, recentCompletion } =
+          activeResult.data;
         if (activeAcceptance) {
           setAcceptance(activeAcceptance);
           if (latestSubmission) {
@@ -252,6 +259,8 @@ function App() {
             }
           }
           restoredActiveQuest = true;
+        } else if (recentCompletion) {
+          setRecentCompletion(recentCompletion);
         }
       } catch (activeRequestError) {
         setError(
@@ -329,6 +338,7 @@ function App() {
         method: 'POST',
       });
       setAcceptance(result.data);
+      setRecentCompletion(null);
       setSubmission(null);
       setVerification(null);
       setEvidence('');
@@ -619,6 +629,28 @@ function App() {
                 Today’s quests aren’t ready yet. Showing the published pool
                 from <strong>{formatPoolDate(board.poolDate)}</strong>.
               </span>
+            </div>
+          )}
+
+          {recentCompletion && (
+            <div className="recent-completion" role="status">
+              <div>
+                <p className="eyebrow">QUEST VERIFIED</p>
+                <h2>{recentCompletion.acceptance.questSnapshot.title}</h2>
+                <p>
+                  {recentCompletion.submission.reason ||
+                    'The Quest Master verified your reflection.'}
+                </p>
+              </div>
+              <strong>+{recentCompletion.submission.xpAwarded} XP</strong>
+              <button
+                className="text-button"
+                onClick={() => setRecentCompletion(null)}
+                type="button"
+                aria-label="Dismiss completed quest message"
+              >
+                Dismiss
+              </button>
             </div>
           )}
 

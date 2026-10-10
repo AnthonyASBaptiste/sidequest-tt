@@ -43,9 +43,11 @@ The home server sends the pool to Render and polls for verification jobs; it
 never connects directly to Atlas. Players cannot reroll. If today's generation
 fails, the app shows the most recently published pool with its date. If no
 pool has been published yet, the board shows an unavailable state. A quest
-completed yesterday is marked but can be tried again; XP is awarded only once
-for each player and quest instance. The MVP uses guest accounts and awards 25,
-50, or 100 XP by rarity. Voice, levels, and Tobago selection are deferred.
+completed today or yesterday is marked but can be tried again; XP is awarded
+only once for each player and quest instance. The player header shows the
+server-reported total XP, updated when verification completes. The MVP uses
+guest accounts and awards 25, 50, or 100 XP by rarity. Voice, levels, and
+Tobago selection are deferred.
 MongoDB Atlas persists game state through the API.
 
 ## Project status

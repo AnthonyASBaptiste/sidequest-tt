@@ -103,6 +103,19 @@ a:focus-visible {
   font-size: 12px;
 }
 
+.player-region {
+  white-space: nowrap;
+}
+
+.player-xp {
+  padding-left: 9px;
+  border-left: 1px solid var(--line);
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .player-dot {
   width: 7px;
   height: 7px;
@@ -447,6 +460,17 @@ a:focus-visible {
   background: #f1ecd9;
   color: #665528;
   font-family: Arial, Helvetica, sans-serif;
+  text-transform: none;
+}
+
+.completed-today {
+  padding: 3px 7px;
+  border: 1px solid #c8d4b9;
+  border-radius: 999px;
+  background: #edf3e4;
+  color: #315b45;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
   text-transform: none;
 }
 
@@ -949,6 +973,15 @@ a:focus-visible {
   .player-pill {
     padding: 8px 10px;
     font-size: 10px;
+  }
+
+  .player-xp {
+    padding-left: 7px;
+    font-size: 10px;
+  }
+
+  .player-region {
+    font-size: 9px;
   }
 
   .form-footer {

@@ -13,6 +13,7 @@ type Quest = {
   completionCriteria: string[];
   safetyGuidance: string[];
   lastCompletedAt: string | null;
+  completedToday: boolean;
   completedYesterday: boolean;
 };
 
@@ -25,7 +26,7 @@ type QuestBoard = {
 
 type Snapshot = Omit<
   Quest,
-  'id' | 'completedYesterday' | 'lastCompletedAt' | 'slot'
+  'id' | 'completedToday' | 'completedYesterday' | 'lastCompletedAt' | 'slot'
 >;
 
 type Acceptance = {
@@ -229,6 +230,39 @@ function App() {
     setBoard(result.data);
   }, []);
 
+  async function refreshAfterVerification() {
+    const [sessionResult, activeResult, boardResult] = await Promise.allSettled([
+      apiRequest<{ guest: Guest }>('/session/guest', { method: 'POST' }),
+      apiRequest<ActiveQuestResponse>('/quests/active'),
+      apiRequest<QuestBoard>('/quests/today'),
+    ]);
+
+    if (sessionResult.status === 'fulfilled') {
+      setGuest(sessionResult.value.data.guest);
+    }
+    if (activeResult.status === 'fulfilled') {
+      setRecentCompletion(activeResult.value.data.recentCompletion);
+    }
+    if (boardResult.status === 'fulfilled') {
+      setBoard(boardResult.value.data);
+    }
+
+    if (
+      sessionResult.status === 'fulfilled' &&
+      activeResult.status === 'fulfilled' &&
+      boardResult.status === 'fulfilled'
+    ) {
+      setAcceptance(null);
+      setSubmission(null);
+      setVerification(null);
+      return;
+    }
+
+    setError(
+      'Quest verified! Your points or quest board could not be refreshed. Reload to sync your progress.',
+    );
+  }
+
   const initialize = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -314,6 +348,7 @@ function App() {
             setAcceptance((current) =>
               current ? { ...current, status: 'completed' } : current,
             );
+            void refreshAfterVerification();
           }
         }
       } catch {
@@ -433,7 +468,12 @@ function App() {
         </a>
         <div className="player-pill">
           <span className="player-dot" />
-          {guest?.region ?? 'Trinidad'} explorer
+          <span className="player-region">
+            {guest?.region ?? 'Trinidad'} explorer
+          </span>
+          <strong className="player-xp">
+            {(guest?.xp ?? 0).toLocaleString()} XP
+          </strong>
         </div>
       </header>
 
@@ -442,7 +482,13 @@ function App() {
           <span>{error}</span>
           <button
             className="text-button"
-            onClick={() => void (acceptance ? loadBoard() : initialize())}
+            onClick={() =>
+              void (verification?.status === 'verified'
+                ? refreshAfterVerification()
+                : acceptance
+                  ? loadBoard()
+                  : initialize())
+            }
             type="button"
           >
             Try again
@@ -695,11 +741,15 @@ function App() {
                             <span>{quest.durationMinutes} min</span>
                             <span>·</span>
                             <span>{quest.difficulty}</span>
-                            {quest.completedYesterday && (
+                            {quest.completedToday ? (
+                              <span className="completed-today">
+                                Completed today
+                              </span>
+                            ) : quest.completedYesterday ? (
                               <span className="completed-yesterday">
                                 Completed yesterday
                               </span>
-                            )}
+                            ) : null}
                           </span>
                         </span>
                         <span className="quest-card-reward">

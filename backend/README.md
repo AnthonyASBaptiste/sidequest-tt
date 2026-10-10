@@ -71,6 +71,10 @@ default 120). Do not put the MongoDB URI or credentials on the worker.
 with its actual `poolDate` and `fallback: true`. If no published pool exists,
 the route returns HTTP 503 with `available: false` and
 `reason: "no_published_pool"`. This route does not generate or modify quests.
+Each quest includes `lastCompletedAt`, `completedToday`, and
+`completedYesterday` for the current guest. The day markers use the Trinidad
+calendar date, so a successful verification is reflected as `Completed today`
+when the board is refreshed.
 
 To perform a minimal database ping:
 

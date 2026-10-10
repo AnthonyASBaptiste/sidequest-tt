@@ -55,6 +55,12 @@ export class TodaysQuestDto {
   lastCompletedAt!: string | null;
 
   @ApiProperty({
+    example: false,
+    description: 'Whether the guest completed this quest instance today in Trinidad.',
+  })
+  completedToday!: boolean;
+
+  @ApiProperty({
     example: true,
     description: 'Whether the most recent completion date was yesterday in Trinidad.',
   })

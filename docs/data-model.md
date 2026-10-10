@@ -26,9 +26,9 @@
   the player accepted, even if its daily board entry later expires.
 - The board response includes the pool date, whether it is being served as a
   fallback, and per quest the player's `lastCompletedAt` (ISO 8601 timestamp or
-  `null`) and `completedYesterday` boolean. “Yesterday” uses the
-  `America/Port_of_Spain` calendar date. These are response metadata; a
-  completion marker does not remove or disable a quest.
+  `null`), `completedToday`, and `completedYesterday` booleans. Both day
+  markers use the `America/Port_of_Spain` calendar date. These are response
+  metadata; a completion marker does not remove or disable a quest.
 
 ## Collections
 

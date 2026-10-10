@@ -256,6 +256,9 @@ export class QuestsService {
           completionCriteria: quest.completionCriteria,
           safetyGuidance: quest.safetyGuidance,
           lastCompletedAt: lastCompletedAt?.toISOString() ?? null,
+          completedToday:
+            lastCompletedAt !== null &&
+            getTrinidadDate(lastCompletedAt) === today,
           completedYesterday:
             lastCompletedAt !== null &&
             getTrinidadDate(lastCompletedAt) === yesterday,

@@ -7,8 +7,9 @@
 
 - Gemma runs in a container on the always-on home server and generates one
   shared daily quest pool for players in Trinidad.
-- A published daily pool contains 5–10 quests. The home-server job runs at 04:00
-  in `America/Port_of_Spain`. Players cannot reroll or trigger regeneration.
+- A published daily pool contains 5–10 quests. A board request queues today's
+  pool on demand; the home-server worker polls for requests every 30 seconds.
+  Players cannot reroll or otherwise control generation.
 - If today's generation fails, serve the most recently published pool (normally
   yesterday's) with its actual date and a previous-pool notice. Keep it available
   for acceptance until a newer pool is successfully published.
@@ -99,8 +100,9 @@ override them. Legendary templates are deferred.
 
 ### `questPoolBatches`
 
-One record tracks the once-per-day generation and publication for a region.
-The unique date/region key makes the scheduled job idempotent.
+One record tracks the once-per-day generation request and publication for a
+region. The unique date/region key makes board requests and publication
+idempotent.
 
 ```js
 {
@@ -123,8 +125,10 @@ marks it as a previous pool with its actual date. That pool remains available
 for new acceptances until a newer pool is successfully published; at that point
 its quests receive an expiry time. Generation retries, if needed to finish an
 unpublished batch, are server/operator behavior—not a player reroll. A
-published batch is immutable. The scheduled run starts at 04:00 local time in
-`America/Port_of_Spain`.
+published batch is immutable. A site visit creates a `generating` batch for
+today when none exists; the home-server worker polls for that request every 30
+seconds and reuses the batch when it publishes. The latest published pool
+remains available while generation is pending.
 
 The implemented home-server worker fetches active templates from the API,
 generates candidate titles, descriptions, and durations with Gemma, and sends

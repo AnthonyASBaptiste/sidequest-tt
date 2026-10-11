@@ -21,6 +21,7 @@ type QuestBoard = {
   available: boolean;
   poolDate: string | null;
   fallback: boolean;
+  generationRequested: boolean;
   quests: Quest[];
 };
 
@@ -317,6 +318,29 @@ function App() {
     initializedRef.current = true;
     void initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    if (!board?.generationRequested) return;
+    let stopped = false;
+    let timeoutId: number;
+    const refresh = async () => {
+      try {
+        const result = await apiRequest<QuestBoard>('/quests/today');
+        if (stopped) return;
+        setBoard(result.data);
+        if (result.data.generationRequested) {
+          timeoutId = window.setTimeout(refresh, 15_000);
+        }
+      } catch {
+        if (!stopped) timeoutId = window.setTimeout(refresh, 15_000);
+      }
+    };
+    timeoutId = window.setTimeout(refresh, 15_000);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [board?.generationRequested]);
 
   useEffect(() => {
     if (!submission || !acceptance || verification?.status !== 'pending') {
@@ -683,7 +707,18 @@ function App() {
               <span className="notice-mark">↻</span>
               <span>
                 Today’s quests aren’t ready yet. Showing the published pool
-                from <strong>{formatPoolDate(board.poolDate)}</strong>.
+                from <strong>{formatPoolDate(board.poolDate)}</strong> while
+                today’s pool is generated.
+              </span>
+            </div>
+          )}
+
+          {board && !board.available && board.generationRequested && (
+            <div className="fallback-notice" role="status">
+              <span className="notice-mark">↻</span>
+              <span>
+                Today’s quest pool is being prepared. The board will refresh
+                when the home-server generator publishes it.
               </span>
             </div>
           )}

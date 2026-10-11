@@ -28,7 +28,7 @@ if (args[0] === '--preview') {
   validatePoolPayload(payload);
   await publishPool(payload);
 } else if (args[0] === '--schedule' && args.length === 1) {
-  console.info('Quest-pool scheduler started for 04:00 America/Port_of_Spain.');
+  console.info('Quest-pool worker started; checking for site requests every 30 seconds.');
   process.once('SIGINT', () => {
     stopping = true;
   });
@@ -38,7 +38,7 @@ if (args[0] === '--preview') {
   while (!stopping) {
     await generateScheduledPool();
     if (!stopping) {
-      await sleep(millisecondsUntilNextRun(new Date()));
+      await sleep(30_000);
     }
   }
   console.info('Quest-pool scheduler stopped.');
@@ -69,6 +69,7 @@ async function generateScheduledPool() {
         console.info(`Today's Trinidad pool is already published (${templatesResponse.poolDate}).`);
         return;
       }
+      if (!templatesResponse.generationRequested) return;
       const payload = await generatePoolFromTemplates(templatesResponse);
       await publishPool(payload);
       return;
@@ -79,7 +80,7 @@ async function generateScheduledPool() {
           : 'Quest-pool generation failed; the existing board is unchanged.',
       );
       if (!stopping) {
-        await sleep(15 * 60 * 1000);
+        await sleep(30_000);
       }
     }
   }
@@ -454,69 +455,12 @@ function durationRange(rarity) {
   return range;
 }
 
-function millisecondsUntilNextRun(now) {
-  const local = trinidadDateTimeParts(now);
-  let targetDate = `${local.year}-${local.month}-${local.day}`;
-  if (local.hour >= 4) {
-    const nextDate = new Date(Date.UTC(local.year, local.month - 1, local.day + 1));
-    targetDate = `${nextDate.getUTCFullYear()}-${String(nextDate.getUTCMonth() + 1).padStart(2, '0')}-${String(nextDate.getUTCDate()).padStart(2, '0')}`;
-  }
-  let target = localDateTimeToUtc(targetDate, 4);
-  if (target.getTime() <= now.getTime()) {
-    const nextDate = new Date(Date.UTC(local.year, local.month - 1, local.day + 1));
-    const tomorrow = `${nextDate.getUTCFullYear()}-${String(nextDate.getUTCMonth() + 1).padStart(2, '0')}-${String(nextDate.getUTCDate()).padStart(2, '0')}`;
-    target = localDateTimeToUtc(tomorrow, 4);
-  }
-  return Math.max(1000, target.getTime() - now.getTime());
-}
-
-function localDateTimeToUtc(localDate, hour) {
-  const [year, month, day] = localDate.split('-').map(Number);
-  const desiredWallTime = Date.UTC(year, month - 1, day, hour, 0, 0);
-  let candidate = desiredWallTime;
-  for (let index = 0; index < 3; index += 1) {
-    const parts = trinidadDateTimeParts(new Date(candidate));
-    const observedWallTime = Date.UTC(
-      parts.year,
-      parts.month - 1,
-      parts.day,
-      parts.hour,
-      parts.minute,
-      parts.second,
-    );
-    const correction = desiredWallTime - observedWallTime;
-    candidate += correction;
-    if (correction === 0) {
-      break;
-    }
-  }
-  return new Date(candidate);
-}
-
-function trinidadDateTimeParts(date) {
-  const values = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Port_of_Spain',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hourCycle: 'h23',
-    })
-      .formatToParts(date)
-      .filter((part) => part.type !== 'literal')
-      .map(({ type, value }) => [type, Number(value)]),
-  );
-  return values;
-}
-
 function isTemplatesResponse(value) {
   return (
     isRecord(value) &&
     typeof value.poolDate === 'string' &&
     typeof value.poolAlreadyPublished === 'boolean' &&
+    typeof value.generationRequested === 'boolean' &&
     Array.isArray(value.templates) &&
     value.templates.length >= 5 &&
     value.templates.length <= 10 &&

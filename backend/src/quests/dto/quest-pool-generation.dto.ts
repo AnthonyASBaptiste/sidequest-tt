@@ -38,6 +38,11 @@ export class QuestPoolTemplatesResponseDto {
   })
   poolAlreadyPublished!: boolean;
 
+  @ApiProperty({
+    description: 'True when the site has requested generation for poolDate and no pool is published yet.',
+  })
+  generationRequested!: boolean;
+
   @ApiProperty({ type: [QuestTemplateForGenerationDto] })
   templates!: QuestTemplateForGenerationDto[];
 }

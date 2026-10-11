@@ -98,8 +98,9 @@ Evidence remains in page memory only and is not stored in browser storage.
 Verified XP is displayed only from the API response.
 
 The player has completed real outdoor quests and confirmed the retry flow on
-mobile. The current production pool is still the original seeded pool; the
-first generated pool is scheduled for the next Trinidad calendar date so
-existing acceptances, submissions, and completions remain intact. The API and
-worker use matching credentials and a 120-second lease. Keep the verification
-worker running on the home server to process new submissions.
+mobile. The current production pool is still the original seeded pool. The
+board now requests a generated pool on first visit for a Trinidad date without
+one, while keeping the previous pool available; the home-server worker must be
+running to fulfill that request. Existing acceptances, submissions, and
+completions remain intact. The API and verification worker use matching
+credentials and a 120-second lease.

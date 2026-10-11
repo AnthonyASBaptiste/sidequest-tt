@@ -88,6 +88,11 @@ export class TodayQuestBoardDto {
   })
   fallback!: boolean;
 
+  @ApiProperty({
+    description: 'True while the home-server worker is generating the requested pool for today.',
+  })
+  generationRequested!: boolean;
+
   @ApiProperty({ type: [TodaysQuestDto] })
   quests!: TodaysQuestDto[];
 }
@@ -107,6 +112,9 @@ export class QuestBoardUnavailableDto {
 
   @ApiProperty({ example: false })
   fallback!: false;
+
+  @ApiProperty({ example: true })
+  generationRequested!: true;
 
   @ApiProperty({ type: [TodaysQuestDto] })
   quests!: [];

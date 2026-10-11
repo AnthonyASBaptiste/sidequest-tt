@@ -243,18 +243,20 @@ npm run worker:generate-pool -- --preview --out /tmp/sidequest-pool.json
 npm run worker:generate-pool -- --publish-from /tmp/sidequest-pool.json
 ```
 
-Run the home-server scheduler as a persistent process:
+Run the home-server generation worker as a persistent process:
 
 ```sh
 npm run worker:generate-pool -- --schedule
 ```
 
-The scheduler runs at 04:00 in `America/Port_of_Spain`; if startup finds today's
-pool missing, it catches up immediately. A failed generation is retried every
-15 minutes. It currently produces one quest per active template (five in the
-current data). The prompt avoids named venues, addresses, opening hours, or
-unverified access claims. Keep `worker:verify` running separately. Both workers
-use the ignored `worker/.env`; neither has MongoDB credentials.
+The worker polls every 30 seconds. When a player opens the quest board and
+today's pool is missing, the API stores a generation request. The worker picks
+it up, generates with the configured local Gemma model, and publishes through
+the API. The board continues showing the latest published pool while this runs
+and refreshes after publication. Keep the worker running on the home server;
+the API cannot reach Ollama directly. It currently produces one quest per
+active template (five in the current data). Keep `worker:verify` running
+separately. Both workers use ignored `worker/.env` and have no MongoDB access.
 
 ## Collections and indexes
 

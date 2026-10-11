@@ -12,6 +12,7 @@ import {
 } from '../database/schemas/quest-acceptance.schema.js';
 import { QuestCompletion } from '../database/schemas/quest-completion.schema.js';
 import { QuestPoolBatch } from '../database/schemas/quest-pool-batch.schema.js';
+import { QuestPoolGenerationService } from './quest-pool-generation.service.js';
 import { Quest } from '../database/schemas/quest.schema.js';
 import { SubmissionAttempt } from '../database/schemas/submission-attempt.schema.js';
 import {
@@ -61,6 +62,7 @@ export class QuestsService {
     private readonly questAcceptanceModel: Model<QuestAcceptance>,
     @InjectModel(SubmissionAttempt.name)
     private readonly submissionAttemptModel: Model<SubmissionAttempt>,
+    private readonly questPoolGenerationService: QuestPoolGenerationService,
   ) {}
 
   async getActiveQuest(
@@ -181,11 +183,16 @@ export class QuestsService {
     const batch = await this.getCurrentPublishedBatch(today);
 
     if (!batch) {
+      await this.questPoolGenerationService.requestPoolGeneration(today, now);
+    }
+
+    if (!batch) {
       throw new ServiceUnavailableException({
         available: false,
         reason: 'no_published_pool',
         poolDate: null,
         fallback: false,
+        generationRequested: true,
         quests: [],
       });
     }
@@ -238,6 +245,7 @@ export class QuestsService {
       available: true,
       poolDate: batch.poolDate,
       fallback: batch.poolDate !== today,
+      generationRequested: batch.poolDate !== today,
       quests: quests.map((quest): TodaysQuestDto => {
         const lastCompletedAt =
           latestCompletionByQuest.get(quest._id.toString()) ?? null;

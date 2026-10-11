@@ -148,13 +148,14 @@ awarding XP because the sample evidence did not establish the quest criteria.
 This verifies one local inference/result path, not a hosted deployment or
 general model reliability.
 
-The home-server scheduler runs at 04:00 in `America/Port_of_Spain`; when it
-starts and today's pool is missing, it catches up immediately. Failed
-generation attempts retry every 15 minutes. The player selects from the latest
-published daily pool and cannot trigger regeneration. If today's generation
-fails, the UI serves the latest pool with its actual date and a clear
-previous-pool label. If no pool has ever been published, show an unavailable
-state. A published pool for the same date is not replaced.
+When a player opens the quest board and today's pool is missing, the API stores
+one generation request for the Trinidad date. The home-server worker polls for
+requests every 30 seconds and generates only requested pools. The board keeps
+serving the latest published pool, labeled with its date, while generation is
+pending; the frontend refreshes until today's pool is published. If no pool
+has ever been published, show an unavailable state while generation proceeds.
+A published pool for the same date is never replaced. The worker must remain
+running on the home server; page requests cannot reach Ollama directly.
 
 ### ElevenLabs
 
@@ -235,7 +236,7 @@ of model prompts and logs; never expose a model port.
 
 ## Daily pool and repeat completion behavior
 
-The home-server job starts at 04:00 in `America/Port_of_Spain`. If today's batch fails validation or generation, serve the most recently published batch with its actual date and a clear previous-pool label; do not publish partial content. Keep that pool available until a newer pool is successfully published. On each player's board, mark any matching quest they completed yesterday as `Completed yesterday`; show the completion date for older completions. Keep the re-accept action available. XP is granted only for the player's first verified completion of that quest instance.
+If today's batch fails validation or generation, serve the most recently published batch with its actual date and a clear previous-pool label; do not publish partial content. Keep that pool available until a newer pool is successfully published. On each player's board, mark any matching quest they completed yesterday as `Completed yesterday`; show the completion date for older completions. Keep the re-accept action available. XP is granted only for the player's first verified completion of that quest instance.
 
 The MVP awards 25 XP for Common, 50 for Uncommon, and 100 for Rare. It shows
 total XP and completion history; levels are deferred. XP awards are unique per

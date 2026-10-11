@@ -21,7 +21,7 @@ unblock the submission or are requested.
 | Quest acceptance | Acceptance snapshots preserve the offered quest; a unique active-user index handles concurrent one-active-quest requests. See development log 007. | Highlight server-authoritative state and idempotent/concurrent behavior. |
 | Text evidence submission | Numbered pending attempts use a 2,000-character limit, idempotency keys, atomic state changes, and 30-day deletion metadata. See development log 008. | Explain privacy-conscious evidence capture and retry-safe persistence. |
 | Verification and XP transition | The API exposes authenticated, leased worker claims/results, validates assessments at an initial 0.75 confidence threshold, and transactionally completes quests and awards fixed XP once. A disposable local run with Ollama `gemma4:e2b-it-qat` took 13.484 seconds and returned `review` without XP. On 2026-10-10, the same model processed one real hosted submission in 12.377 seconds; Render accepted the worker result. The final assessment category was not captured in worker logs. See development logs 009, 010, and 014. | Show the API/model boundary and exactly-once game state while accurately describing local and hosted evidence. |
-| Generated daily quest pools | The API serves reviewed templates to the authenticated home-server worker, validates Gemma's structured candidates, and transactionally publishes a complete pool. A real five-quest pool was generated with `gemma4:e2b-it-qat`, published to development Atlas, and returned by the local quest board. The disposable pool and guest were removed. The hosted Oct 10 seed has player activity and was preserved; the home-server scheduler is configured to publish on a date with no existing pool. See development log 017. | Demonstrate Gemma generating playable content while the API keeps safety, criteria, rarity, and rewards authoritative. |
+| Generated daily quest pools | The API serves reviewed templates to the authenticated home-server worker, validates Gemma's structured candidates, and transactionally publishes a complete pool. A real five-quest pool was generated with `gemma4:e2b-it-qat`, published to development Atlas, and returned by the local quest board. The disposable pool and guest were removed. The hosted Oct 10 seed has player activity and was preserved. On-demand generation is implemented locally; its hosted trigger and worker still need deployment and confirmation. See development logs 017 and 018. | Demonstrate Gemma generating playable content while the API keeps safety, criteria, rarity, and rewards authoritative. |
 | Player-facing flow | A React/Vite app builds and was exercised in a browser against the local API: guest cookie, dated fallback pool, quest details and safety, acceptance, screen-away/return, text submission, and pending status. Evidence was not found in local or session storage. The disposable guest, acceptance, and submission were removed; all five seeded quests remained. See [development log 011](development-log/011-player-facing-flow.md). | Demonstrate the screen-away loop and how the frontend leaves game state and XP authoritative on the API. |
 
 These entries describe work recorded as implemented and verified in the
@@ -48,8 +48,8 @@ calendar date.
 - **Honest demo status:** the user confirmed the retry flow on mobile and has
   completed outdoor quests. Real generation was verified in development Atlas;
   the hosted board still has the original Oct 10 seed because player activity
-  exists in that pool. Confirm the next scheduled hosted pool before claiming
-  daily generation is live in production.
+  exists in that pool. Confirm on-demand generation on the hosted deployment
+  before claiming it is live in production.
 - **Evidence to collect:** working demo URL, repository link, screenshots or
   short demo capture, and actual playtest observations if available.
 

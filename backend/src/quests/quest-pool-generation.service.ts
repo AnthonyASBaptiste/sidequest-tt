@@ -75,10 +75,16 @@ export class QuestPoolGenerationService {
       .select({ _id: 1 })
       .lean()
       .exec();
+    const requestedBatch = await this.questPoolBatchModel
+      .findOne({ region: 'Trinidad', poolDate, status: 'generating' })
+      .select({ _id: 1 })
+      .lean()
+      .exec();
 
     return {
       poolDate,
       poolAlreadyPublished: Boolean(existingBatch),
+      generationRequested: Boolean(requestedBatch),
       templates: templates.slice(0, POOL_MAX_SIZE).map((template) => ({
         id: template._id.toString(),
         version: template.version,
@@ -91,6 +97,39 @@ export class QuestPoolGenerationService {
         safetyGuidance: [...template.safetyGuidance],
       })),
     };
+  }
+
+  async requestPoolGeneration(poolDate: string, now = new Date()): Promise<void> {
+    if (poolDate !== getTrinidadDate(now)) return;
+    const existing = await this.questPoolBatchModel
+      .findOne({ region: 'Trinidad', poolDate })
+      .lean()
+      .exec();
+    if (existing?.status === 'published' || existing?.status === 'generating') return;
+    if (existing) {
+      await this.questPoolBatchModel.updateOne(
+        { _id: existing._id, status: 'failed' },
+        { $set: { status: 'generating', startedAt: now, errorCode: null } },
+      );
+      return;
+    }
+
+    try {
+      await this.questPoolBatchModel.create({
+        poolDate,
+        region: 'Trinidad',
+        status: 'generating',
+        questCount: 0,
+        model: 'gemma4:e2b-it-qat',
+        promptVersion: POOL_PROMPT_VERSION,
+        startedAt: now,
+        publishedAt: null,
+        errorCode: null,
+      });
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      // A simultaneous site request already created today's generation request.
+    }
   }
 
   async publishPool(
@@ -110,7 +149,7 @@ export class QuestPoolGenerationService {
       .findOne({ region: 'Trinidad', poolDate: today })
       .lean()
       .exec();
-    if (existing) {
+    if (existing?.status === 'published') {
       return this.handleExistingBatch(existing, request.model, today);
     }
 
@@ -188,7 +227,7 @@ export class QuestPoolGenerationService {
       });
     });
 
-    const batchId = new Types.ObjectId();
+    const batchId = existing?._id ?? new Types.ObjectId();
     for (const quest of questDocs) {
       quest.batchId = batchId;
       await quest.validate();
@@ -210,7 +249,25 @@ export class QuestPoolGenerationService {
     const session = await this.connection.startSession();
     try {
       await session.withTransaction(async () => {
-        await batch.save({ session });
+        if (existing) {
+          await this.questPoolBatchModel.updateOne(
+            { _id: batchId, status: existing.status },
+            {
+              $set: {
+                status: 'generating',
+                questCount: questDocs.length,
+                model: request.model,
+                promptVersion: POOL_PROMPT_VERSION,
+                startedAt: now,
+                publishedAt: null,
+                errorCode: null,
+              },
+            },
+            { session },
+          );
+        } else {
+          await batch.save({ session });
+        }
         await this.questModel.insertMany(questDocs, {
           session,
           ordered: true,

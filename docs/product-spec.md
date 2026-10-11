@@ -72,7 +72,7 @@ Do not add a map, live GPS, social features, or mobile-specific geolocation to t
 2. **Available:** A valid quest is stored and can appear on the player's board.
 3. **Accepted:** The player starts the quest. The acceptance time and quest version should be retained so its completion rules do not silently change mid-activity.
 4. **Evidence submitted:** The player submits the requested written response. The submission becomes a numbered completion attempt associated with that accepted quest.
-5. **Under review:** Gemma returns a structured assessment against the quest's explicit criteria.
+5. **Assessment:** Gemma returns a structured assessment against the quest's explicit criteria.
 6. **Verified or retry requested:** A passing assessment completes the quest. A failed assessment gives a plain-language reason and allows another attempt. The product should avoid accusing the player of dishonesty. A model outage, timeout, or invalid response leaves the attempt retryable and grants no XP.
 7. **Completed:** The system records the result, awards XP once, and shows the completed quest in history.
 
@@ -82,21 +82,23 @@ State transitions and duplicate submissions must be handled by the API so a retr
 
 Evidence should be proportionate to the activity. For the MVP, use a short written answer or reflection, and design quests so that text can reasonably address their completion criteria. The quest must state what counts as acceptable evidence before acceptance. Photo evidence is deferred.
 
-Gemma should evaluate only the accepted quest snapshot, its completion criteria,
-and the submitted evidence, then return a structured result with status
-(`verified`, `retry`, or `review`), a short reason, confidence, and failed
-criteria where applicable. The backend validates the response and applies the
-outcome. The initial minimum confidence is 0.75; lower-confidence output is
-treated as `review`. Malformed output and model failure remain retryable and
-cannot award XP. `review` does not award XP; manual review is deferred. The
-product must not imply that AI verification proves identity, time, or physical
-presence.
+Gemma should evaluate only the accepted quest snapshot, its completion
+criteria, and the submitted evidence, then return a structured result with
+status (`verified`, `retry`, or `review`), a short reason, confidence, and
+failed criteria where applicable. The backend validates the response. Only a
+`verified` result meeting the 0.75 confidence threshold can award XP. Explicit
+`review` and lower-confidence results become retryable outcomes: manual review
+is not staffed in the MVP, so players must not be blocked waiting for it.
+Malformed output and model failure remain pending/retryable and cannot award
+XP. The product must not imply that AI verification proves identity, time, or
+physical presence.
 
-The configured local Ollama model is `gemma4:e2b-it-qat`. One disposable
-end-to-end inference returned a valid `review` assessment, which the API
-stored without XP because the sample evidence did not establish the quest
-criteria. Hosted worker configuration and broader model behavior remain
-unverified.
+The configured local Ollama model is `gemma4:e2b-it-qat`. One disposable local
+inference returned `review`; the API stored it without XP. A later hosted
+submission also reached `review` for clearly irrelevant evidence, exposing a
+dead end because no manual review process exists. The API and UI are being
+changed so review and low-confidence outcomes allow another attempt; see
+development log 016. This does not establish broader model reliability.
 
 A submitted text cannot reliably prove identity, time, or physical location. Do not present AI verification as fraud-proof. Avoid collecting GPS or identity data for the MVP. Delete submitted evidence text 30 days after submission while retaining verification metadata; pending attempts expire without XP at that point. Image uploads are out of scope; if added later, define size/type limits, retention, access controls, and deletion behavior before launch.
 

@@ -168,11 +168,12 @@ MongoDB or expose an inbound port.
 
 The API validates the exact assessment shape, reason length, confidence range,
 and that failed criteria belong to the accepted snapshot. Confidence below
-`0.75` is stored as `review` and cannot award XP. Invalid output and model
-failures stay pending/retryable. `retry` returns the acceptance to `retry`;
-`review` keeps it submitted and active without XP. Verified results atomically
-complete the acceptance, clear its active marker, record completion, and award
-fixed rarity XP only once per guest and quest instance.
+`0.75` and explicit `review` assessments become retryable outcomes and cannot
+award XP; the MVP has no staffed manual-review queue. Invalid output and model
+failures stay pending/retryable. A retry returns the acceptance to `retry`;
+existing legacy `review` attempts can also be retried. Verified results
+atomically complete the acceptance, clear its active marker, record
+completion, and award fixed rarity XP only once per guest and quest instance.
 
 The player can poll `GET
 /api/acceptances/:acceptanceId/submissions/:attemptId` for status and feedback;

@@ -44,7 +44,9 @@ The player's final result screen and outdoor play have not been verified.
 - **Honest demo status:** include only features that are running and verified;
   state that one local assessment returned `review` and earned no XP, one
   hosted assessment was accepted by the API (its final category was not
-  captured), and outdoor play is untested.
+  captured), and an irrelevant hosted submission exposed a review dead end.
+  The retryable-review fix is implemented locally but awaits deployment and
+  mobile confirmation; outdoor play is untested.
 - **Evidence to collect:** working demo URL, repository link, screenshots or
   short demo capture, and actual playtest observations if available.
 

@@ -97,12 +97,13 @@ Example assessment contract (illustrative):
 Allowed status values are `verified`, `retry`, and `review`. The API requires a
 short reason (up to 500 characters), confidence in `[0, 1]`, and failed
 criteria drawn from the accepted snapshot. The initial confidence threshold is
-`0.75`; a lower score is stored as `review`, not as a pass. Invalid output,
-timeout, and model failure award no XP; invalid results remain pending and
-worker failures can release the claim or allow its lease to expire. A `retry`
-assessment returns the acceptance to player-retryable state while retaining
-its active marker. A `review` result leaves the acceptance submitted and
-active. No valid structured `verified` result means no XP award.
+`0.75`; a lower score cannot pass. The API converts explicit `review` and
+below-threshold results to a retryable outcome because the MVP has no staffed
+manual review. Invalid output, timeout, and model failure award no XP; invalid
+results remain pending and worker failures can release the claim or allow its
+lease to expire. A retryable result returns the acceptance to player-retryable
+state while retaining its active marker. No valid structured `verified`
+result meeting the confidence threshold means no XP award.
 
 #### Local-to-hosted connectivity decision
 

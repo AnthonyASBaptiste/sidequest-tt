@@ -292,10 +292,11 @@ The API accepts an assessment containing exactly `status`, `reason`,
 `confidence`, and `failedCriteria`. Status is `verified`, `retry`, or `review`;
 reason is non-empty and at most 500 characters; confidence is from 0 to 1;
 failed criteria must match the accepted snapshot. The initial minimum
-confidence is 0.75. Lower confidence is stored as `review`. Invalid output
-releases the claim and leaves the attempt pending. A `retry` result returns
-the acceptance to `retry` while retaining `activeUserId`. `review` leaves the
-acceptance submitted and active. Neither result awards XP.
+confidence is 0.75. An explicit `review` or lower-confidence result is stored
+as a retryable `retry` outcome because manual review is not staffed in the MVP.
+Invalid output releases the claim and leaves the attempt pending. A retry
+returns the acceptance to `retry` while retaining `activeUserId`; neither
+outcome awards XP. Existing `review` records remain eligible for a new attempt.
 
 For `verified`, one Atlas transaction marks the attempt and acceptance
 complete, clears `activeUserId`, creates a completion, and creates the unique
@@ -310,7 +311,8 @@ without XP. A scheduled deletion job unsets the evidence field; it must not
 TTL-delete the attempt metadata. Gemma output is untrusted. The API validates
 the response and applies the confidence threshold. Unavailable Gemma, malformed
 output, `review`, and low confidence cannot create a completion or award XP.
-Do not log raw evidence or include it in error reporting.
+Do not log raw evidence or include it in error reporting. Review and
+low-confidence outcomes remain retryable rather than blocking the player.
 
 ### `questCompletions`
 

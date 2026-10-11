@@ -100,20 +100,27 @@ export class SubmissionsService {
           return;
         }
 
-        if (!['accepted', 'retry'].includes(acceptance.status)) {
+        const previousAttempt = await this.submissionAttemptModel
+          .findOne({ acceptanceId: acceptanceObjectId })
+          .sort({ attemptNumber: -1 })
+          .select({ attemptNumber: 1, status: 1 })
+          .session(session)
+          .lean<{ attemptNumber: number; status: SubmissionAttempt['status'] }>()
+          .exec();
+        const retryingExistingReview =
+          acceptance.status === 'submitted' &&
+          previousAttempt?.status === 'review';
+
+        if (
+          !['accepted', 'retry'].includes(acceptance.status) &&
+          !retryingExistingReview
+        ) {
           throw new ConflictException({
             code: 'acceptance_not_submittable',
             message: 'Evidence can be submitted only for an accepted or retrying quest.',
           });
         }
 
-        const previousAttempt = await this.submissionAttemptModel
-          .findOne({ acceptanceId: acceptanceObjectId })
-          .sort({ attemptNumber: -1 })
-          .select({ attemptNumber: 1 })
-          .session(session)
-          .lean<{ attemptNumber: number }>()
-          .exec();
         const attemptNumber = (previousAttempt?.attemptNumber ?? 0) + 1;
 
         const attempt = new this.submissionAttemptModel({
@@ -135,7 +142,9 @@ export class SubmissionsService {
             _id: acceptanceObjectId,
             userId,
             activeUserId: userId,
-            status: { $in: ['accepted', 'retry'] },
+            status: retryingExistingReview
+              ? 'submitted'
+              : { $in: ['accepted', 'retry'] },
           },
           {
             $set: {

@@ -208,13 +208,19 @@ export class VerificationWorkerService {
       throw error;
     }
 
-    if (assessment.confidence < MIN_VERIFICATION_CONFIDENCE) {
+    if (
+      assessment.status === 'review' ||
+      assessment.confidence < MIN_VERIFICATION_CONFIDENCE
+    ) {
       assessment = {
         ...assessment,
-        status: 'review',
-        reason: truncateReason(
-          `Confidence below ${MIN_VERIFICATION_CONFIDENCE.toFixed(2)}; sent for review. ${assessment.reason}`,
-        ),
+        status: 'retry',
+        reason:
+          assessment.confidence < MIN_VERIFICATION_CONFIDENCE
+            ? truncateReason(
+                `The result was uncertain, so no XP was awarded. Add more detail and try again. ${assessment.reason}`,
+              )
+            : assessment.reason,
       };
     }
 

@@ -441,6 +441,11 @@ function App() {
   }
 
   function startAnotherAttempt() {
+    if (verification?.status === 'review') {
+      setAcceptance((current) =>
+        current ? { ...current, status: 'retry' } : current,
+      );
+    }
     setSubmission(null);
     setEvidence('');
     idempotencyKeyRef.current = null;
@@ -888,8 +893,8 @@ function VerificationCard({
     return (
       <div className="status-card status-review" role="status">
         <span className="status-icon">◷</span>
-        <p className="eyebrow">AWAITING REVIEW</p>
-        <h2>The Quest Master needs another look</h2>
+        <p className="eyebrow">TRY ANOTHER REFLECTION</p>
+        <h2>Add the missing details</h2>
         <p>
           {verification.reason ||
             'Your result is awaiting review. No XP has been awarded.'}
@@ -902,9 +907,16 @@ function VerificationCard({
           </ul>
         )}
         <p className="no-xp-note">
-          No XP earned yet. This result is awaiting review; you can’t submit
-          another attempt until the Quest Master resolves it.
+          No XP was awarded for this attempt. Add the missing observations and
+          submit again; you don’t need to wait for a manual review.
         </p>
+        <button
+          className="button button-primary"
+          onClick={onAnotherAttempt}
+          type="button"
+        >
+          Write another reflection
+        </button>
       </div>
     );
   }

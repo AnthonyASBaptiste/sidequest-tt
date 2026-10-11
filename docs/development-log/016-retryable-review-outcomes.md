@@ -21,6 +21,6 @@ confidence is below the 0.75 threshold, and both paths left the acceptance in
 
 ## Verification status
 
-Backend and frontend builds and `git diff --check` pass. The fix has not yet
-been deployed or confirmed on mobile. It does not alter or reveal submitted
-evidence text.
+Backend and frontend builds and `git diff --check` passed. On 2026-10-10, the
+user confirmed the retry flow works on the hosted phone experience. The change
+does not alter or reveal submitted evidence text.

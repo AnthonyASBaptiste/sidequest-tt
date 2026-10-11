@@ -21,19 +21,23 @@ unblock the submission or are requested.
 | Quest acceptance | Acceptance snapshots preserve the offered quest; a unique active-user index handles concurrent one-active-quest requests. See development log 007. | Highlight server-authoritative state and idempotent/concurrent behavior. |
 | Text evidence submission | Numbered pending attempts use a 2,000-character limit, idempotency keys, atomic state changes, and 30-day deletion metadata. See development log 008. | Explain privacy-conscious evidence capture and retry-safe persistence. |
 | Verification and XP transition | The API exposes authenticated, leased worker claims/results, validates assessments at an initial 0.75 confidence threshold, and transactionally completes quests and awards fixed XP once. A disposable local run with Ollama `gemma4:e2b-it-qat` took 13.484 seconds and returned `review` without XP. On 2026-10-10, the same model processed one real hosted submission in 12.377 seconds; Render accepted the worker result. The final assessment category was not captured in worker logs. See development logs 009, 010, and 014. | Show the API/model boundary and exactly-once game state while accurately describing local and hosted evidence. |
+| Generated daily quest pools | The API serves reviewed templates to the authenticated home-server worker, validates Gemma's structured candidates, and transactionally publishes a complete pool. A real five-quest pool was generated with `gemma4:e2b-it-qat`, published to development Atlas, and returned by the local quest board. The disposable pool and guest were removed. The hosted Oct 10 seed has player activity and was preserved; the home-server scheduler is configured to publish on a date with no existing pool. See development log 017. | Demonstrate Gemma generating playable content while the API keeps safety, criteria, rarity, and rewards authoritative. |
 | Player-facing flow | A React/Vite app builds and was exercised in a browser against the local API: guest cookie, dated fallback pool, quest details and safety, acceptance, screen-away/return, text submission, and pending status. Evidence was not found in local or session storage. The disposable guest, acceptance, and submission were removed; all five seeded quests remained. See [development log 011](development-log/011-player-facing-flow.md). | Demonstrate the screen-away loop and how the frontend leaves game state and XP authoritative on the API. |
 
 These entries describe work recorded as implemented and verified in the
-development logs. The initial browser run reached pending verification; a
-later hosted worker run successfully returned one model assessment to Render.
-The player's final result screen and outdoor play have not been verified.
+development logs, with the outdoor playtest and retry-flow confirmation also
+reported directly by the user. Phone testing covered real quests from the
+original seeded pool. The generated pool was verified in development Atlas;
+the hosted board still serves the original Oct 10 pool until the next Trinidad
+calendar date.
 
 ## Submission narrative to assemble
 
 - **Problem and experience:** make real-world exploration feel like an RPG and
   deliberately reduce screen time while a quest is underway.
-- **What makes it distinct:** quests are gameplay, not itineraries; Gemma is
-  intended to be the player-facing AI core, while the API enforces game rules.
+- **What makes it distinct:** quests are gameplay, not itineraries; Gemma
+  generates the shared quest pool and assesses evidence, while the API enforces
+  game rules.
 - **Architecture:** local Gemma/home-server worker, NestJS API, MongoDB Atlas,
   and the Vite frontend. One hosted worker/API/Gemma inference has been
   verified; ongoing worker availability and the player's final result screen
@@ -41,12 +45,11 @@ The player's final result screen and outdoor play have not been verified.
 - **Technical decisions worth showing:** dated fallback pools, immutable
   acceptance snapshots, one-active-quest enforcement, idempotent submissions,
   transaction-backed state changes, and evidence retention metadata.
-- **Honest demo status:** include only features that are running and verified;
-  state that one local assessment returned `review` and earned no XP, one
-  hosted assessment was accepted by the API (its final category was not
-  captured), and an irrelevant hosted submission exposed a review dead end.
-  The retryable-review fix is implemented locally but awaits deployment and
-  mobile confirmation; outdoor play is untested.
+- **Honest demo status:** the user confirmed the retry flow on mobile and has
+  completed outdoor quests. Real generation was verified in development Atlas;
+  the hosted board still has the original Oct 10 seed because player activity
+  exists in that pool. Confirm the next scheduled hosted pool before claiming
+  daily generation is live in production.
 - **Evidence to collect:** working demo URL, repository link, screenshots or
   short demo capture, and actual playtest observations if available.
 
@@ -54,9 +57,10 @@ The player's final result screen and outdoor play have not been verified.
 
 - Community/library research and other optional technical “wisdom.”
 - A public build-in-public cadence or progress posts.
-- Persistent worker startup/monitoring and the evidence deletion job.
-- Any claim about user enjoyment or successful outdoor play until tested with
-  players.
+- Persistent worker startup/monitoring on the home server and the evidence
+  deletion job.
+- Claims about user enjoyment; outdoor completion has been tested, but no
+  broader user feedback has been collected.
 
 ## Hosted worker operation
 

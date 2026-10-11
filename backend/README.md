@@ -4,8 +4,9 @@ NestJS + Mongoose API for MongoDB Atlas. It currently creates anonymous guest
 sessions, serves the daily quest board with per-player completion markers, and
 supports quest acceptance, text evidence submission, authenticated verification
 worker claims/results, completion, and idempotent XP awards. The `worker/`
-directory contains a home-server verification worker and configurable
-Ollama-compatible runtime adapter. The React/Vite frontend is in `../frontend`.
+directory contains a home-server verification worker, the Gemma quest-pool
+generator, and a configurable Ollama-compatible runtime adapter. Neither
+worker connects directly to MongoDB. The React/Vite frontend is in `../frontend`.
 
 ## Configure
 
@@ -216,6 +217,45 @@ hardcoded by this repository. The exact installed model name is configured
 locally; `gemma4:e2b-it-qat` has completed a local end-to-end inference through
 this worker and API.
 
+## Gemma quest-pool generation
+
+The home-server generation worker uses the same local Gemma runtime and worker
+credential. It fetches active, human-reviewed Trinidad templates from
+`GET /api/internal/quest-pools/templates`, asks Gemma for one title, description,
+and duration per template, validates the structured response locally, then
+sends candidates to `POST /api/internal/quest-pools/publish`. The API derives
+rarity, difficulty, criteria, proof instructions, safety guidance, and XP from
+the stored template. It accepts only today's Trinidad date and publishes the
+complete pool and quests in one Atlas transaction. It never replaces an
+existing pool for that date; the latest published pool remains the board
+fallback when generation fails.
+
+Run one generation and publish it:
+
+```sh
+npm run worker:generate-pool
+```
+
+To inspect a real model response before publishing that exact candidate pool:
+
+```sh
+npm run worker:generate-pool -- --preview --out /tmp/sidequest-pool.json
+npm run worker:generate-pool -- --publish-from /tmp/sidequest-pool.json
+```
+
+Run the home-server scheduler as a persistent process:
+
+```sh
+npm run worker:generate-pool -- --schedule
+```
+
+The scheduler runs at 04:00 in `America/Port_of_Spain`; if startup finds today's
+pool missing, it catches up immediately. A failed generation is retried every
+15 minutes. It currently produces one quest per active template (five in the
+current data). The prompt avoids named venues, addresses, opening hours, or
+unverified access claims. Keep `worker:verify` running separately. Both workers
+use the ignored `worker/.env`; neither has MongoDB credentials.
+
 ## Collections and indexes
 
 Mongoose schemas explicitly bind to `users`, `questTemplates`,
@@ -224,5 +264,6 @@ Mongoose schemas explicitly bind to `users`, `questTemplates`,
 declared in the corresponding schema files and are built at startup.
 
 The logical data model remains in `../docs/data-model.md`. The API implements
-the quest and verification transitions described there; daily pool generation
-and publication and the scheduled evidence-deletion job remain unimplemented.
+the quest-pool generation and publication path and the quest/verification
+transitions described there. The scheduled evidence-deletion job remains
+unimplemented.

@@ -64,12 +64,13 @@ The API owns transitions and enforces a unique completion per acceptance and one
 
 ### Local Gemma service and model
 
-For home-server communication, the worker submits the generated pool, claims
-pending verification jobs from Render, then posts structured model results to
-the API for validation. Verification worker endpoints use HTTPS and a dedicated
-`VERIFICATION_WORKER_SECRET` bearer credential. Each claim is atomic and
-time-limited; only the current claim token can return an assessment. Do not
-expose an inbound model port or give the worker MongoDB credentials.
+For home-server communication, the worker fetches reviewed templates, submits
+the generated pool, claims pending verification jobs from Render, then posts
+structured model results to the API for validation. These internal endpoints
+use a dedicated `VERIFICATION_WORKER_SECRET` bearer credential. Pool
+publication is date-scoped and transactional; verification claims are atomic
+and time-limited. Do not expose an inbound model port or give either worker
+MongoDB credentials.
 
 Gemma is the product AI, responsible for:
 
@@ -121,30 +122,39 @@ The API validates the response and owns every state transition and XP award.
 Render never opens a connection to the home network. If the home server or
 model is unavailable, attempts remain pending/retryable and earn no XP.
 
-The repository contains the NestJS worker API and a small Node.js home-server
-worker in `backend/worker/`. The worker polls the claim endpoint, calls a
+The repository contains the NestJS worker API and Node.js home-server workers
+in `backend/worker/`. The verification worker polls the claim endpoint, calls a
 configurable Ollama-compatible `/api/chat` endpoint, validates the structured
-assessment, and submits a result or bounded failure code. Configure
+assessment, and submits a result or bounded failure code. The pool generator
+fetches active templates and calls the same local runtime to generate bounded
+titles, descriptions, and durations. Configure
 `VERIFICATION_WORKER_SECRET` in the API and worker, and use the same
 `VERIFICATION_LEASE_SECONDS` value on both. The home-server deployment must
 supply its HTTPS API origin, local runtime base URL, and exact installed model
 name through environment variables. No model version or credential is
 embedded in the repository.
 
-The worker sends only the accepted quest snapshot, completion criteria, and
-evidence to the local runtime. It never sends attempt IDs, claim tokens, or
-API credentials to the model; it has no MongoDB access and exposes no inbound
-port. API and model requests have bounded timeouts. Failed or malformed model
-results are returned using the API failure contract, while failed result
-delivery is retried only within the lease window; the API lease remains
-authoritative after worker failure. A disposable local end-to-end run with
+The verification worker sends only the accepted quest snapshot, completion
+criteria, and evidence to the local runtime. It never sends attempt IDs, claim
+tokens, or API credentials to the model; it has no MongoDB access and exposes
+no inbound port. The generator sends only reviewed template guidance and
+criteria to Gemma; the API retains authoritative proof requirements, safety
+guidance, difficulty, rarity, and XP. API and model requests have bounded
+timeouts. Failed or malformed results do not replace a published pool. A
+disposable local end-to-end run with
 Ollama's installed `gemma4:e2b-it-qat` completed in 13.484 seconds. The model
 returned a valid `review` assessment, which the local API stored without
 awarding XP because the sample evidence did not establish the quest criteria.
 This verifies one local inference/result path, not a hosted deployment or
 general model reliability.
 
-The player selects from the latest published daily pool. There is no player-triggered regeneration. If today's generation fails, the UI serves the latest pool with its actual date and a clear previous-pool label. If no pool has ever been published, show an unavailable state.
+The home-server scheduler runs at 04:00 in `America/Port_of_Spain`; when it
+starts and today's pool is missing, it catches up immediately. Failed
+generation attempts retry every 15 minutes. The player selects from the latest
+published daily pool and cannot trigger regeneration. If today's generation
+fails, the UI serves the latest pool with its actual date and a clear
+previous-pool label. If no pool has ever been published, show an unavailable
+state. A published pool for the same date is not replaced.
 
 ### ElevenLabs
 

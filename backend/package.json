@@ -13,7 +13,8 @@
     "start:prod": "node dist/main.js",
     "db:check": "npm run build && node dist/check-database.js",
     "db:seed": "npm run build && node dist/seed-sample-data.js",
-    "worker:verify": "node --env-file=worker/.env worker/verify-worker.mjs"
+    "worker:verify": "node --env-file=worker/.env worker/verify-worker.mjs",
+    "worker:generate-pool": "node --env-file=worker/.env worker/generate-quest-pool.mjs"
   },
   "dependencies": {
     "@nestjs/cli": "^11.0.0",

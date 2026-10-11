@@ -468,8 +468,13 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="/" aria-label="SideQuest T&T home">
-          <span className="brand-mark">SQ</span>
-          <span>SideQuest <b>T&amp;T</b></span>
+          <img
+            className="brand-logo"
+            src="/sidequest-logo.svg"
+            alt=""
+            width="240"
+            height="56"
+          />
         </a>
         <div className="player-pill">
           <span className="player-dot" />

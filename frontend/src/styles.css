@@ -70,25 +70,10 @@ a:focus-visible {
   text-decoration: none;
 }
 
-.brand b {
-  color: var(--green);
-}
-
-.brand-mark {
-  width: 38px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #9d8965;
-  border-radius: 3px 5px 4px 2px;
-  background:
-    linear-gradient(90deg, transparent 0 5px, rgba(185, 78, 64, 0.28) 5px 6px, transparent 6px),
-    repeating-linear-gradient(0deg, #f6edcf 0 6px, #d8cda9 7px, #f6edcf 8px);
-  box-shadow: 1px 2px 0 rgba(64, 51, 32, 0.14);
-  color: #3e513f;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 700;
+.brand-logo {
+  display: block;
+  width: min(190px, 52vw);
+  height: auto;
 }
 
 .player-pill {

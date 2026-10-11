@@ -54,8 +54,13 @@ MongoDB Atlas persists game state through the API.
 
 The NestJS API now supports guest sessions, the Trinidad quest board,
 acceptance, text evidence, worker verification, and server-authoritative XP.
-The home-server worker has completed a real local inference using Ollama model
-`gemma4:e2b-it-qat`. A small React/Vite player flow is available in `frontend/`
+The home-server verification worker has completed real local and hosted
+Gemma inference using `gemma4:e2b-it-qat`. The repository now also contains a
+daily quest-pool generator: Gemma produces candidates from the reviewed
+templates, while the NestJS API validates and publishes the pool. A real
+five-quest generation was published and read back from the development Atlas
+database; the temporary data was then cleaned up. Today's hosted pool remains
+the original seed because it already has player activity. A small React/Vite player flow is available in `frontend/`
 and hosted on Vercel; the API is hosted on Render. Vercel proxies `/api/*` to
 the Render API so the browser uses a same-origin guest cookie, including on
 mobile browsers with strict third-party cookie handling.
@@ -92,12 +97,9 @@ acceptance, submits text reflections, and polls server verification status.
 Evidence remains in page memory only and is not stored in browser storage.
 Verified XP is displayed only from the API response.
 
-The local browser flow has been verified through a pending submission. Active
-quests and their latest submission status are restored after a page refresh.
-The frontend's verified, retry, and review states have not yet been exercised
-in-browser. Hosted
-verification and outdoor playtesting remain unverified. For hosted worker
-verification, set `VERIFICATION_WORKER_SECRET` on both Render and the
-home-server worker to the same value and set `VERIFICATION_LEASE_SECONDS=120`
-on both; configure the worker's `API_BASE_URL` with the actual deployed API
-origin rather than a placeholder.
+The player has completed real outdoor quests and confirmed the retry flow on
+mobile. The current production pool is still the original seeded pool; the
+first generated pool is scheduled for the next Trinidad calendar date so
+existing acceptances, submissions, and completions remain intact. The API and
+worker use matching credentials and a 120-second lease. Keep the verification
+worker running on the home server to process new submissions.

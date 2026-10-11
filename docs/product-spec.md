@@ -115,8 +115,8 @@ Do not make a quest depend on a precise address or private property unless the p
 ## Remaining implementation and test decisions
 
 - Tune the initial 0.75 verification confidence threshold after playtesting.
-- Configure the hosted worker secret and matching lease duration before
-  enabling verification against the hosted API.
+- Run the home-server pool scheduler persistently at the intended 04:00 local
+  time and confirm the next generated pool appears on the hosted board.
 - Implement the scheduled evidence deletion job.
 
 ## Success criteria

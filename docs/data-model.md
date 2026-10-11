@@ -1,6 +1,6 @@
 # SideQuest T&T — MongoDB Data Model
 
-**Status:** MVP schema proposal  
+**Status:** Logical model implemented by the NestJS/Mongoose API
 **Persistence:** MongoDB Atlas, accessed only by the NestJS API
 
 ## MVP decisions captured here
@@ -125,6 +125,14 @@ its quests receive an expiry time. Generation retries, if needed to finish an
 unpublished batch, are server/operator behavior—not a player reroll. A
 published batch is immutable. The scheduled run starts at 04:00 local time in
 `America/Port_of_Spain`.
+
+The implemented home-server worker fetches active templates from the API,
+generates candidate titles, descriptions, and durations with Gemma, and sends
+them to the authenticated publication endpoint. The API independently validates
+the date, template IDs, unique titles, duration bands, and field limits. It
+derives all other quest fields from the template and publishes the batch and
+quest instances in an Atlas transaction. A published pool for the same date is
+never replaced.
 
 ### `quests`
 

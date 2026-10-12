@@ -23,9 +23,20 @@ not request generation when a player opened the board.
 ## Verification and remaining work
 
 - Backend build passed after the implementation.
-- This change has not yet been deployed or exercised against the hosted API.
-- The earlier real local Gemma generation remains verified, but this specific
-  page-trigger-to-publication flow still needs a live run.
+- The user reports that the home-server worker generated a new pool after the
+  change. The provided mobile video shows the hosted board dated October 11,
+  2026, with generated quests including “Public Space Detail Tracker” (Rare,
+  100 XP) and “Route Deviation Discovery” (Common, 25 XP). The video does not
+  show every pool entry, so this is not a full pool inventory.
+- A read-only check of the hosted OpenAPI document returned HTTP 200 and
+  included the generation-request response field. An unauthenticated request
+  to the quest board returned the expected HTTP 401, so the published pool
+  could not be inspected without the user's guest session. No guest or test
+  records were created for this check.
+- The video shows the verifier asking for a clearer route difference and
+  observation on an initial reflection. After the player added detail, “The
+  Safe Detour” was marked **QUEST VERIFIED** for **+25 XP**; the displayed
+  account total became **100 XP**. This closes the evidence-to-XP demo loop.
 - Keep `worker:generate-pool -- --schedule` running persistently on the home
   server. If the worker is stopped, the board safely keeps the prior pool and
   the queued request waits until the worker returns.

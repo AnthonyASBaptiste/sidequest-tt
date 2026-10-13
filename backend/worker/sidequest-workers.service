@@ -1,0 +1,20 @@
+[Unit]
+Description=SideQuest T&T Full-Time Workers (Verification and Quest Pool Generation)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/anthony/Projects/sidequest-tt/backend
+ExecStart=/home/anthony/.local/bin/node worker/run-all-workers.mjs
+Restart=always
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=15
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sidequest-workers
+
+[Install]
+WantedBy=default.target

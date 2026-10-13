@@ -348,7 +348,7 @@ function validatePoolRequest(raw: PublishRequest): {
     typeof raw.poolDate !== 'string' ||
     !/^\d{4}-\d{2}-\d{2}$/.test(raw.poolDate) ||
     typeof raw.model !== 'string' ||
-    !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(raw.model) ||
+    !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$/.test(raw.model) ||
     !Array.isArray(raw.quests) ||
     raw.quests.length < POOL_MIN_SIZE ||
     raw.quests.length > POOL_MAX_SIZE

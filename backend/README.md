@@ -191,35 +191,53 @@ expired claims retryable.
 
 ### Run on the home server
 
-Use Node.js 20.6 or newer. Copy `worker/.env.example` to `worker/.env` and
+Use Node.js 20.6 or newer (Node 22 LTS is installed). Copy `worker/.env.example` to `worker/.env` and
 configure:
 
-- `API_BASE_URL`: the API origin, such as the HTTPS Render service origin.
-  Plain HTTP is accepted only for a loopback development API.
-- `VERIFICATION_WORKER_SECRET`: the same random secret configured on the API.
-- `VERIFICATION_LEASE_SECONDS`: the API's configured lease duration. Worker
-  inference and API timeouts must fit inside that lease.
-- `GEMMA_BASE_URL`: the configured local Ollama-compatible runtime origin.
-- `GEMMA_MODEL`: the exact model name already installed in that runtime.
-- `WORKER_POLL_INTERVAL_MS`, `WORKER_API_TIMEOUT_MS`, and
-  `WORKER_MODEL_TIMEOUT_MS`: polling cadence and bounded request timeouts.
+- `API_BASE_URL`: the API origin (`https://sidequest-tt.onrender.com`).
+- `VERIFICATION_WORKER_SECRET`: the same secret configured on the API (minimum 32 characters).
+- `VERIFICATION_LEASE_SECONDS`: the API lease duration (default 120).
+- `NVIDIA_API_KEY`: your NVIDIA API key (`nvapi-...`) to access Gemma via NVIDIA NIM.
+- `GEMMA_MODEL`: the Gemma model identifier (defaults to `google/gemma-2-27b-it` when using NVIDIA).
+- `NVIDIA_BASE_URL`: defaults to `https://integrate.api.nvidia.com/v1`.
+- `WORKER_POLL_INTERVAL_MS`, `WORKER_API_TIMEOUT_MS`, and `WORKER_MODEL_TIMEOUT_MS`: polling intervals and timeouts.
 
-Start the worker from this backend directory:
+If `NVIDIA_API_KEY` is omitted, the workers automatically fall back to local Ollama via `GEMMA_BASE_URL`.
+
+### Run both workers full-time (recommended)
+
+To run both the verification worker and the demand-triggered scheduled quest pool generator in a single resilient supervisor:
+
+```sh
+npm run worker:all
+```
+
+The supervisor manages both workers, prefixes logs with `[verify]` and `[pool-gen]`, and automatically restarts any worker if it encounters a transient failure.
+
+To run as a systemd user service on your always-on home server:
+
+```sh
+mkdir -p ~/.config/systemd/user
+cp worker/sidequest-workers.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now sidequest-workers
+```
+
+To inspect logs:
+```sh
+journalctl --user -u sidequest-workers -f
+```
+
+To run individual workers:
 
 ```sh
 npm run worker:verify
+npm run worker:generate-pool:schedule
 ```
-
-The worker polls until stopped with Ctrl-C/SIGTERM. Logs contain operational
-status and attempt IDs only; they do not include credentials, submitted
-evidence, model prompts, or model output. No Gemma model name or version is
-hardcoded by this repository. The exact installed model name is configured
-locally; `gemma4:e2b-it-qat` has completed a local end-to-end inference through
-this worker and API.
 
 ## Gemma quest-pool generation
 
-The home-server generation worker uses the same local Gemma runtime and worker
+The home-server generation worker uses the same Gemma runtime and worker
 credential. It fetches active, human-reviewed Trinidad templates from
 `GET /api/internal/quest-pools/templates`, asks Gemma for one title, description,
 and duration per template, validates the structured response locally, then
@@ -251,12 +269,9 @@ npm run worker:generate-pool -- --schedule
 
 The worker polls every 30 seconds. When a player opens the quest board and
 today's pool is missing, the API stores a generation request. The worker picks
-it up, generates with the configured local Gemma model, and publishes through
+it up, generates with the configured Gemma model (`google/gemma-2-27b-it`), and publishes through
 the API. The board continues showing the latest published pool while this runs
-and refreshes after publication. Keep the worker running on the home server;
-the API cannot reach Ollama directly. It currently produces one quest per
-active template (five in the current data). Keep `worker:verify` running
-separately. Both workers use ignored `worker/.env` and have no MongoDB access.
+and refreshes after publication. Keep the worker running on the home server. Both workers use ignored `worker/.env` and have no MongoDB access.
 
 ## Collections and indexes
 

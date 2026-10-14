@@ -239,6 +239,7 @@ Example output structure:
     temperature: 0.75,
     maxTokens: 4096,
     schema,
+    timeoutMs: 180000,
   });
 }
 
@@ -286,13 +287,12 @@ function parseGeneratedCandidates(content, templates) {
     const description = candidate.description.trim();
     const titleKey = title.toLocaleLowerCase('en');
     const range = durationRange(template.rarity);
+    const durationMinutes = Math.max(range.min, Math.min(range.max, candidate.durationMinutes));
     if (
       title.length < 3 ||
       title.length > 120 ||
       description.length < 20 ||
       description.length > 2000 ||
-      candidate.durationMinutes < range.min ||
-      candidate.durationMinutes > range.max ||
       seenTitles.has(titleKey)
     ) {
       throw new Error('Gemma returned a quest outside the approved content limits.');
@@ -303,7 +303,7 @@ function parseGeneratedCandidates(content, templates) {
       templateId: candidate.templateId,
       title,
       description,
-      durationMinutes: candidate.durationMinutes,
+      durationMinutes,
     };
   });
 }
@@ -357,9 +357,16 @@ function validatePoolPayload(payload) {
 }
 
 async function publishPool(payload) {
+  const apiModel = config.gemmaModel.replace(/\//g, ':');
+  const apiPayload = {
+    poolDate: payload.poolDate,
+    ...(payload.region && payload.region !== 'Trinidad' ? { region: payload.region } : {}),
+    model: apiModel,
+    quests: payload.quests,
+  };
   const response = await apiRequest('/internal/quest-pools/publish', {
     method: 'POST',
-    body: payload,
+    body: apiPayload,
   });
   if (
     !isRecord(response) ||
@@ -368,7 +375,7 @@ async function publishPool(payload) {
     typeof response.batchId !== 'string' ||
     response.poolDate !== payload.poolDate ||
     response.questCount !== payload.quests.length ||
-    response.model !== config.gemmaModel
+    (response.model !== config.gemmaModel && response.model !== apiModel)
   ) {
     throw new Error('The API returned an invalid quest-pool publication response.');
   }

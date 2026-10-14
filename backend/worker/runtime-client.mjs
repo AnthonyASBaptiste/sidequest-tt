@@ -46,7 +46,7 @@ export function loadRuntimeConfig(environment = process.env) {
     const rawModel =
       environment.GEMMA_MODEL ||
       environment.NVIDIA_MODEL ||
-      'google/gemma-2-27b-it';
+      'google/gemma-4-31b-it';
     gemmaModel = rawModel.trim();
     if (gemmaModel.length === 0) {
       throw new Error('GEMMA_MODEL must not be empty.');
@@ -126,6 +126,7 @@ export async function requestGemmaChat({
   maxTokens = 4096,
   schema = null,
   modelOverride = null,
+  timeoutMs = null,
 }) {
   if (config.provider === 'nvidia') {
     return requestNvidiaChat({
@@ -134,6 +135,7 @@ export async function requestGemmaChat({
       temperature,
       maxTokens,
       modelOverride,
+      timeoutMs,
     });
   }
   return requestOllamaChat({
@@ -141,6 +143,7 @@ export async function requestGemmaChat({
     messages,
     temperature,
     schema,
+    timeoutMs,
   });
 }
 
@@ -150,9 +153,11 @@ async function requestNvidiaChat({
   temperature,
   maxTokens,
   modelOverride = null,
+  timeoutMs = null,
 }) {
   const endpoint = getOpenAiCompletionsEndpoint(config.baseUrl);
   const model = modelOverride || config.gemmaModel;
+  const timeout = timeoutMs || config.modelTimeoutMs;
   let response;
   try {
     response = await fetch(endpoint, {
@@ -162,7 +167,7 @@ async function requestNvidiaChat({
         authorization: `Bearer ${config.nvidiaApiKey}`,
       },
       redirect: 'error',
-      signal: AbortSignal.timeout(config.modelTimeoutMs),
+      signal: AbortSignal.timeout(timeout),
       body: JSON.stringify({
         model,
         messages,

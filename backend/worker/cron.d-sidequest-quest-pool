@@ -1,0 +1,6 @@
+# /etc/cron.d/sidequest-quest-pool
+# System-level cron entry for SideQuest T&T daily quest pool generation
+SHELL=/bin/bash
+PATH=/home/anthony/.local/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+5 0,4,8,12,16,20 * * * anthony /home/anthony/Projects/sidequest-tt/backend/worker/cron-generate-pool.sh

@@ -115,12 +115,100 @@ const SAMPLE_QUESTS: SampleQuest[] = [
     ],
   },
   {
+    key: 'picture-on-green-bench',
+    rarity: 'common',
+    difficulty: 'easy',
+    activityShape: 'Find a green bench in a public park, savannah, or square and take a picture.',
+    generationGuidance:
+      'Encourage finding a green bench in an accessible public park or savannah.',
+    title: 'Green Bench Scavenger',
+    description:
+      'Head to a public park, garden, square, or savannah. Find a green park bench and snap a picture of it (or sit on it and take a selfie).',
+    durationMinutes: 15,
+    proofInstructions:
+      'Upload a photo showing the green park bench in its public setting.',
+    completionCriteria: [
+      'The photo clearly shows a green park bench.',
+      'The bench is located in a lawful, open public space.',
+    ],
+    safetyGuidance: [
+      'Visit parks and public squares only during daylight hours.',
+      'Stay alert and keep personal items secure while taking photos.',
+    ],
+  },
+  {
+    key: 'try-a-new-food-place',
+    rarity: 'uncommon',
+    difficulty: 'moderate',
+    activityShape: 'Try a food spot, bakery, or street food vendor you have never tried before.',
+    generationGuidance:
+      'Encourage local food exploration such as doubles, bake & shark, local pastries, or fresh produce.',
+    title: 'Island Culinary Explorer',
+    description:
+      'Visit a local food spot, street vendor, bakery, or eatery that you have never patronized before. Order a snack or treat and savor the flavor.',
+    durationMinutes: 45,
+    proofInstructions:
+      'Take a photo of your food or the storefront, and briefly mention what you tried.',
+    completionCriteria: [
+      'The photo shows the food item or the food venue.',
+      'The player identified the new food or treat enjoyed.',
+    ],
+    safetyGuidance: [
+      'Choose reputable vendors and clean, well-lit establishments.',
+      'Never cross busy roadways or highways on foot without safe pedestrian crossings.',
+    ],
+  },
+  {
+    key: 'beach-in-the-north',
+    rarity: 'rare',
+    difficulty: 'challenging',
+    activityShape: 'Visit a beach in the north of the country or a scenic coastal shore.',
+    generationGuidance:
+      'Encourage outdoor exploration to coastal vistas such as Maracas, Las Cuevas, Blanchisseuse, or Pigeon Point/Castara in Tobago.',
+    title: 'Northern Coastal Breeze',
+    description:
+      'Take a trip to an open public beach in the north of the island (or a scenic coastal spot). Feel the ocean breeze, listen to the waves, and take in the horizon.',
+    durationMinutes: 90,
+    proofInstructions:
+      'Upload a photo of the coastline or ocean vista from your beach visit.',
+    completionCriteria: [
+      'The photo shows a coastal, beach, or ocean setting.',
+      'The player visited an open, accessible public beach or shoreline.',
+    ],
+    safetyGuidance: [
+      'Always swim only in designated areas with active lifeguards.',
+      'Drive carefully along winding mountain roads; do not visit isolated shores alone.',
+    ],
+  },
+  {
+    key: 'cultural-landmark-or-event',
+    rarity: 'uncommon',
+    difficulty: 'moderate',
+    activityShape: 'Visit a cultural landmark, heritage site, or community gathering place.',
+    generationGuidance:
+      'Encourage visiting cultural spaces such as a theatre, museum, panyard, savannah, or historical site.',
+    title: 'Culture & Heritage Walk',
+    description:
+      'Explore a cultural landmark, historic monument, panyard, heritage site, or active community venue. Observe the architecture and cultural significance.',
+    durationMinutes: 45,
+    proofInstructions:
+      'Upload a photo of the landmark or site, or describe the cultural atmosphere.',
+    completionCriteria: [
+      'The submission identifies the cultural site or landmark visited.',
+      'The submission provides an authentic observation or visual proof of the site.',
+    ],
+    safetyGuidance: [
+      'Respect heritage sites and do not trespass on restricted historical grounds.',
+      'Remain aware of your surroundings in urban public areas.',
+    ],
+  },
+  {
     key: 'three-part-place-story',
     rarity: 'rare',
     difficulty: 'challenging',
     activityShape: 'Complete a multi-step observation quest in an accessible public area.',
     generationGuidance:
-      'Keep all steps in one safe, accessible public area; require no purchase, vehicle, or photography.',
+      'Keep all steps in one safe, accessible public area.',
     title: 'Three-Part Place Story',
     description:
       'Spend time in one accessible public area. Notice a detail in the environment, consider how the space is used, then reflect on how it makes you feel.',
@@ -203,96 +291,85 @@ async function seedSampleData(): Promise<void> {
         completionCriteria: sample.completionCriteria,
         proofInstructions: sample.proofInstructions,
         safetyGuidance: sample.safetyGuidance,
-        allowedRegions: ['Trinidad'],
+        allowedRegions: ['Trinidad', 'Tobago'],
         createdAt: now,
         updatedAt: now,
       });
     });
 
-    const quests = SAMPLE_QUESTS.map((sample, slot) => {
-      const templateId = stableObjectId(
-        `sidequest-sample-template-${sample.key}`,
-      );
-      return new questModel({
-        _id: stableObjectId(`sidequest-sample-quest-${poolDate}-${sample.key}`),
-        batchId,
-        slot,
-        templateId,
-        templateVersion: 1,
-        title: sample.title,
-        description: sample.description,
-        region: 'Trinidad',
-        localContext: null,
-        durationMinutes: sample.durationMinutes,
-        difficulty: sample.difficulty,
-        rarity: sample.rarity,
-        xp: { common: 25, uncommon: 50, rare: 100 }[sample.rarity],
-        proofType: 'text',
-        proofInstructions: sample.proofInstructions,
-        completionCriteria: sample.completionCriteria,
-        safetyGuidance: sample.safetyGuidance,
-        generatedBy: 'gemma',
-        model: 'sample-data',
-        promptVersion,
-        availableOn: poolDate,
-        expiresAt: null,
-        status: 'available',
-        createdAt: now,
-      });
-    });
-
-    const batch = new batchModel({
-      _id: batchId,
-      poolDate,
-      region: 'Trinidad',
-      status: 'generating',
-      questCount: SAMPLE_QUESTS.length,
-      model: 'sample-data',
-      promptVersion,
-      startedAt: now,
-      publishedAt: null,
-      errorCode: null,
-    });
-
-    await batch.validate();
-    for (const template of templates) {
-      await template.validate();
-    }
-    for (const quest of quests) {
-      try {
-        await quest.validate();
-      } catch (error) {
-        throw new Error(
-          `Sample quest "${quest.title}" failed schema validation: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
-    }
-
-    if (!existingBatch) {
-      await batch.save();
-    }
     for (const template of templates) {
       if (!(await templateModel.exists({ _id: template._id }))) {
         await template.save();
       }
     }
-    for (const quest of quests) {
-      if (!(await questModel.exists({ _id: quest._id }))) {
-        await quest.save();
+
+    // Seed batches and quests for both Trinidad and Tobago
+    for (const region of ['Trinidad', 'Tobago'] as const) {
+      const regionBatchId = stableObjectId(`sidequest-sample-pool-${region.toLowerCase()}-${poolDate}`);
+      const existing = await batchModel.findOne({ region, poolDate }).lean();
+      if (existing?.status === 'published') {
+        console.log(`A published pool already exists for ${region} on ${poolDate}.`);
+        continue;
       }
+
+      const regionQuests = SAMPLE_QUESTS.map((sample, slot) => {
+        const templateId = stableObjectId(
+          `sidequest-sample-template-${sample.key}`,
+        );
+        const isPhoto = sample.proofInstructions.toLowerCase().includes('photo') ||
+          sample.proofInstructions.toLowerCase().includes('picture');
+
+        return new questModel({
+          _id: stableObjectId(`sidequest-sample-quest-${region.toLowerCase()}-${poolDate}-${sample.key}`),
+          batchId: regionBatchId,
+          slot,
+          templateId,
+          templateVersion: 1,
+          title: region === 'Tobago' ? sample.title.replace('Northern', 'Coastal').replace('Island', 'Tobago') : sample.title,
+          description: region === 'Tobago' ? sample.description.replace('in the north of the island', 'along the scenic Tobago coastline') : sample.description,
+          region,
+          localContext: null,
+          durationMinutes: sample.durationMinutes,
+          difficulty: sample.difficulty,
+          rarity: sample.rarity,
+          xp: { common: 25, uncommon: 50, rare: 100 }[sample.rarity],
+          proofType: isPhoto ? 'photo' : 'text',
+          proofInstructions: sample.proofInstructions,
+          completionCriteria: sample.completionCriteria,
+          safetyGuidance: sample.safetyGuidance,
+          generatedBy: 'gemma',
+          model: 'sample-data',
+          promptVersion,
+          availableOn: poolDate,
+          expiresAt: null,
+          status: 'available',
+          createdAt: now,
+        });
+      });
+
+      const batch = new batchModel({
+        _id: regionBatchId,
+        poolDate,
+        region,
+        status: 'published',
+        questCount: regionQuests.length,
+        model: 'sample-data',
+        promptVersion,
+        startedAt: now,
+        publishedAt: now,
+        errorCode: null,
+      });
+
+      if (!existing) {
+        await batch.save();
+      }
+      for (const quest of regionQuests) {
+        if (!(await questModel.exists({ _id: quest._id }))) {
+          await quest.save();
+        }
+      }
+      console.log(`Seeded ${regionQuests.length} quests for ${region} pool ${poolDate}.`);
     }
-
-    await batchModel.updateOne(
-      { _id: batchId, status: 'generating' },
-      { $set: { status: 'published', publishedAt: new Date() } },
-      { runValidators: true },
-    );
-
-    console.log(
-      `Seeded ${templates.length} templates and ${quests.length} quests for Trinidad pool ${poolDate}.`,
-    );
   } finally {
     await app.close();
   }

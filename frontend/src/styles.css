@@ -76,6 +76,48 @@ a:focus-visible {
   height: auto;
 }
 
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.region-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.region-selector-label {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.region-select {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  padding-right: 4px;
+}
+
+.region-select:focus-visible {
+  outline: 2px solid var(--green);
+  border-radius: 4px;
+}
+
 .player-pill {
   display: flex;
   align-items: center;
@@ -211,6 +253,17 @@ a:focus-visible {
   height: 235px;
   color: #53705c;
   opacity: 0.25;
+}
+
+.map-island-active {
+  stroke: var(--green);
+  opacity: 1;
+  filter: drop-shadow(0 0 4px rgba(49, 91, 69, 0.3));
+}
+
+.map-island-inactive {
+  stroke: currentColor;
+  opacity: 0.45;
 }
 
 .map-marker {
@@ -626,7 +679,7 @@ a:focus-visible {
 
 .evidence-form textarea {
   width: 100%;
-  min-height: 136px;
+  min-height: 100px;
   resize: vertical;
   padding: 13px 14px;
   border: 1px solid #d9ded5;
@@ -635,6 +688,89 @@ a:focus-visible {
   color: var(--ink);
   font-size: 13px;
   line-height: 1.55;
+}
+
+.photo-evidence-section {
+  margin-bottom: 16px;
+}
+
+.photo-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #edf3e4;
+  border: 1px dashed var(--green);
+  border-radius: 8px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 120ms ease;
+  width: 100%;
+  justify-content: center;
+}
+
+.photo-upload-label:hover {
+  background: #e2ecd6;
+  border-color: var(--green-dark);
+}
+
+.photo-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.photo-error {
+  margin: 8px 0 0;
+  color: #c53030;
+  font-size: 11px;
+}
+
+.photo-preview-container {
+  position: relative;
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #f0f0f0;
+  max-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.photo-preview-img {
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(26, 32, 28, 0.82);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 120ms ease;
+}
+
+.photo-remove-btn:hover {
+  background: rgba(197, 48, 48, 0.95);
 }
 
 .evidence-form textarea::placeholder {

@@ -33,6 +33,9 @@ export class QuestPoolTemplatesResponseDto {
   @ApiProperty({ example: '2026-10-10' })
   poolDate!: string;
 
+  @ApiProperty({ example: 'Trinidad', enum: ['Trinidad', 'Tobago'] })
+  region!: 'Trinidad' | 'Tobago';
+
   @ApiProperty({
     description: 'True when a published pool already exists for poolDate.',
   })
@@ -64,6 +67,9 @@ export class GeneratedQuestCandidateDto {
 export class PublishGeneratedQuestPoolDto {
   @ApiProperty({ example: '2026-10-10' })
   poolDate!: string;
+
+  @ApiProperty({ example: 'Trinidad', enum: ['Trinidad', 'Tobago'], required: false })
+  region?: 'Trinidad' | 'Tobago';
 
   @ApiProperty({ example: 'gemma4:e2b-it-qat' })
   model!: string;

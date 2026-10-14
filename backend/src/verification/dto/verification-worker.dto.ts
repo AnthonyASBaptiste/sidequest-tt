@@ -33,6 +33,17 @@ export class ClaimedVerificationJobDto {
     description: 'Private evidence; use only for local Gemma assessment.',
   })
   evidenceText!: string;
+
+  @ApiProperty({
+    example: 'data:image/jpeg;base64,...',
+    description: 'Private photo proof evidence for multimodal vision model assessment.',
+    nullable: true,
+    required: false,
+  })
+  evidencePhoto?: string | null;
+
+  @ApiProperty({ enum: ['text', 'photo', 'both'], example: 'text', required: false })
+  evidenceType?: 'text' | 'photo' | 'both';
 }
 
 export class ClaimVerificationResponseDto {

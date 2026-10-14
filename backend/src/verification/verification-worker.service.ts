@@ -37,6 +37,8 @@ interface ClaimedAttemptRecord {
   acceptanceId: Types.ObjectId;
   attemptNumber: number;
   evidenceText: string;
+  evidencePhoto?: string | null;
+  evidenceType?: 'text' | 'photo' | 'both';
   evidenceDeleteAt: Date;
   status: SubmissionAttempt['status'];
   verificationClaimTokenHash: string;
@@ -160,6 +162,8 @@ export class VerificationWorkerService {
       },
       completionCriteria: [...acceptance.questSnapshot.completionCriteria],
       evidenceText: attempt.evidenceText,
+      evidencePhoto: attempt.evidencePhoto ?? null,
+      evidenceType: attempt.evidenceType ?? (attempt.evidencePhoto ? 'photo' : 'text'),
     };
   }
 

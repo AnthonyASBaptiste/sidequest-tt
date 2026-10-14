@@ -14,6 +14,7 @@ import { QuestCompletion } from '../database/schemas/quest-completion.schema.js'
 import { QuestPoolBatch } from '../database/schemas/quest-pool-batch.schema.js';
 import { QuestPoolGenerationService } from './quest-pool-generation.service.js';
 import { Quest } from '../database/schemas/quest.schema.js';
+import { type QuestRegion } from '../database/schemas/quest-template.schema.js';
 import { SubmissionAttempt } from '../database/schemas/submission-attempt.schema.js';
 import {
   ActiveQuestResponseDto,
@@ -176,14 +177,16 @@ export class QuestsService {
 
   async getTodaysQuestBoard(
     userId: Types.ObjectId,
+    rawRegion?: string,
     now = new Date(),
   ): Promise<TodayQuestBoardDto> {
+    const region: QuestRegion = rawRegion === 'Tobago' ? 'Tobago' : 'Trinidad';
     const today = getTrinidadDate(now);
     const yesterday = getPreviousTrinidadDate(today);
-    const batch = await this.getCurrentPublishedBatch(today);
+    const batch = await this.getCurrentPublishedBatch(today, region);
 
     if (!batch) {
-      await this.questPoolGenerationService.requestPoolGeneration(today, now);
+      await this.questPoolGenerationService.requestPoolGeneration(today, now, region);
     }
 
     if (!batch) {
@@ -286,19 +289,14 @@ export class QuestsService {
     }
 
     const today = getTrinidadDate(now);
-    const batch = await this.getCurrentPublishedBatch(today);
-    if (!batch) {
-      throw this.questUnavailable();
-    }
-
     const quest = await this.questModel
       .findOne({
         _id: new Types.ObjectId(questId),
-        batchId: batch._id,
         status: 'available',
         $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
       })
       .select({
+        batchId: 1,
         title: 1,
         description: 1,
         region: 1,
@@ -314,6 +312,11 @@ export class QuestsService {
       .exec();
 
     if (!quest) {
+      throw this.questUnavailable();
+    }
+
+    const batch = await this.getCurrentPublishedBatch(today, quest.region);
+    if (!batch || !quest.batchId.equals(batch._id)) {
       throw this.questUnavailable();
     }
 
@@ -369,9 +372,12 @@ export class QuestsService {
     }
   }
 
-  private async getCurrentPublishedBatch(today: string) {
+  private async getCurrentPublishedBatch(
+    today: string,
+    region: QuestRegion = 'Trinidad',
+  ) {
     const todaysBatch = await this.questPoolBatchModel
-      .findOne({ region: 'Trinidad', poolDate: today, status: 'published' })
+      .findOne({ region, poolDate: today, status: 'published' })
       .select({ _id: 1, poolDate: 1 })
       .lean()
       .exec();
@@ -379,7 +385,7 @@ export class QuestsService {
     return (
       todaysBatch ??
       (await this.questPoolBatchModel
-        .findOne({ region: 'Trinidad', status: 'published' })
+        .findOne({ region, status: 'published' })
         .sort({ poolDate: -1, publishedAt: -1 })
         .select({ _id: 1, poolDate: 1 })
         .lean()

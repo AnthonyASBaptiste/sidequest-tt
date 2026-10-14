@@ -98,12 +98,18 @@ export function loadRuntimeConfig(environment = process.env) {
     250,
     60000,
   );
+  const visionModel = (environment.VISION_MODEL || 'meta/llama-3.2-11b-vision-instruct').trim();
+  const serpApiKey = (environment.SERPAPI_API_KEY || '').trim();
+  const tavilyApiKey = (environment.TAVILY_API_KEY || '').trim();
 
   return {
     provider,
     apiBaseUrl,
     workerSecret,
     gemmaModel,
+    visionModel,
+    serpApiKey,
+    tavilyApiKey,
     baseUrl,
     nvidiaApiKey,
     leaseSeconds,
@@ -119,6 +125,7 @@ export async function requestGemmaChat({
   temperature = 0.2,
   maxTokens = 4096,
   schema = null,
+  modelOverride = null,
 }) {
   if (config.provider === 'nvidia') {
     return requestNvidiaChat({
@@ -126,6 +133,7 @@ export async function requestGemmaChat({
       messages,
       temperature,
       maxTokens,
+      modelOverride,
     });
   }
   return requestOllamaChat({
@@ -141,8 +149,10 @@ async function requestNvidiaChat({
   messages,
   temperature,
   maxTokens,
+  modelOverride = null,
 }) {
   const endpoint = getOpenAiCompletionsEndpoint(config.baseUrl);
+  const model = modelOverride || config.gemmaModel;
   let response;
   try {
     response = await fetch(endpoint, {
@@ -154,7 +164,7 @@ async function requestNvidiaChat({
       redirect: 'error',
       signal: AbortSignal.timeout(config.modelTimeoutMs),
       body: JSON.stringify({
-        model: config.gemmaModel,
+        model,
         messages,
         temperature,
         max_tokens: maxTokens,

@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Schema as MongooseSchema } from 'mongoose';
+import { QUEST_REGIONS, type QuestRegion } from './quest-template.schema.js';
 
 @Schema({ _id: false })
 export class GuestAuth {
@@ -20,8 +21,8 @@ export class User {
   @Prop({ type: GuestAuthSchema, required: true })
   auth!: GuestAuth;
 
-  @Prop({ type: String, required: true, enum: ['Trinidad'], default: 'Trinidad' })
-  region!: 'Trinidad';
+  @Prop({ type: String, required: true, enum: QUEST_REGIONS, default: 'Trinidad' })
+  region!: QuestRegion;
 
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   preferences!: Record<string, unknown>;

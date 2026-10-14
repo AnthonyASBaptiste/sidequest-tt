@@ -10,6 +10,9 @@ export const QUEST_DIFFICULTIES = [
 ] as const;
 export type QuestDifficulty = (typeof QUEST_DIFFICULTIES)[number];
 
+export const QUEST_REGIONS = ['Trinidad', 'Tobago'] as const;
+export type QuestRegion = (typeof QUEST_REGIONS)[number];
+
 @Schema({
   collection: 'questTemplates',
   timestamps: true,
@@ -43,8 +46,8 @@ export class QuestTemplate {
   @Prop({ type: [String], required: true })
   safetyGuidance!: string[];
 
-  @Prop({ type: [String], required: true, enum: ['Trinidad'], default: ['Trinidad'] })
-  allowedRegions!: string[];
+  @Prop({ type: [String], required: true, enum: QUEST_REGIONS, default: ['Trinidad'] })
+  allowedRegions!: QuestRegion[];
 
   @Prop({ type: Date, required: true, default: Date.now })
   createdAt!: Date;

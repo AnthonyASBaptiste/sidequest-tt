@@ -9,6 +9,7 @@ type Quest = {
   difficulty: string;
   rarity: 'common' | 'uncommon' | 'rare';
   xp: number;
+  proofType?: 'text' | 'photo';
   proofInstructions: string;
   completionCriteria: string[];
   safetyGuidance: string[];
@@ -205,8 +206,41 @@ function RarityBadge({ rarity }: { rarity: Quest['rarity'] }) {
   );
 }
 
+function compressImage(file: File, maxDimension = 1280, quality = 0.75): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Canvas context not available'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 function App() {
   const [guest, setGuest] = useState<Guest | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState<'Trinidad' | 'Tobago'>('Trinidad');
   const [board, setBoard] = useState<QuestBoard | null>(null);
   const [acceptance, setAcceptance] = useState<Acceptance | null>(null);
   const [submission, setSubmission] = useState<Submission | null>(null);
@@ -215,6 +249,9 @@ function App() {
   );
   const [recentCompletion, setRecentCompletion] = useState<ActiveQuestResponse['recentCompletion']>(null);
   const [evidence, setEvidence] = useState('');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [expandedQuest, setExpandedQuest] = useState<string | null>(null);
   const [awayMode, setAwayMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -226,16 +263,52 @@ function App() {
   const startedPollingAtRef = useRef<number | null>(null);
   const initializedRef = useRef(false);
 
-  const loadBoard = useCallback(async () => {
-    const result = await apiRequest<QuestBoard>('/quests/today');
+  const loadBoard = useCallback(async (region: 'Trinidad' | 'Tobago' = selectedRegion) => {
+    const result = await apiRequest<QuestBoard>(`/quests/today?region=${region}`);
     setBoard(result.data);
-  }, []);
+  }, [selectedRegion]);
+
+  function handleRegionChange(newRegion: 'Trinidad' | 'Tobago') {
+    setSelectedRegion(newRegion);
+    void loadBoard(newRegion);
+  }
+
+  async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Please select a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+
+    setPhotoError(null);
+    try {
+      const compressedDataUrl = await compressImage(file, 1280, 0.75);
+      setPhotoPreview(compressedDataUrl);
+      setPhotoBase64(compressedDataUrl);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        setPhotoPreview(result);
+        setPhotoBase64(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function handlePhotoRemove() {
+    setPhotoPreview(null);
+    setPhotoBase64(null);
+    setPhotoError(null);
+  }
 
   async function refreshAfterVerification() {
     const [sessionResult, activeResult, boardResult] = await Promise.allSettled([
       apiRequest<{ guest: Guest }>('/session/guest', { method: 'POST' }),
       apiRequest<ActiveQuestResponse>('/quests/active'),
-      apiRequest<QuestBoard>('/quests/today'),
+      apiRequest<QuestBoard>(`/quests/today?region=${selectedRegion}`),
     ]);
 
     if (sessionResult.status === 'fulfilled') {
@@ -401,6 +474,9 @@ function App() {
       setSubmission(null);
       setVerification(null);
       setEvidence('');
+      setPhotoPreview(null);
+      setPhotoBase64(null);
+      setPhotoError(null);
       setAwayMode(false);
       idempotencyKeyRef.current = null;
     } catch (requestError) {
@@ -419,11 +495,11 @@ function App() {
     event.preventDefault();
     if (!acceptance) return;
     const trimmedEvidence = evidence.trim();
-    if (!trimmedEvidence) {
-      setError('Add a short written reflection before submitting.');
+    if (!trimmedEvidence && !photoBase64) {
+      setError('Please provide either photo proof or a short reflection before submitting.');
       return;
     }
-    if (Array.from(trimmedEvidence).length > MAX_EVIDENCE_CHARACTERS) {
+    if (trimmedEvidence && Array.from(trimmedEvidence).length > MAX_EVIDENCE_CHARACTERS) {
       setError('Keep your reflection within 2,000 characters.');
       return;
     }
@@ -432,12 +508,16 @@ function App() {
     setSubmitting(true);
     setError(null);
     try {
+      const payload: { evidenceText?: string; evidencePhoto?: string } = {};
+      if (trimmedEvidence) payload.evidenceText = trimmedEvidence;
+      if (photoBase64) payload.evidencePhoto = photoBase64;
+
       const result = await apiRequest<Submission>(
         `/acceptances/${acceptance.id}/submissions`,
         {
           method: 'POST',
           headers: { 'Idempotency-Key': idempotencyKeyRef.current },
-          body: JSON.stringify({ evidenceText: trimmedEvidence }),
+          body: JSON.stringify(payload),
         },
       );
       idempotencyKeyRef.current = null;
@@ -454,6 +534,9 @@ function App() {
         submittedAt: result.data.submittedAt,
       });
       setEvidence('');
+      setPhotoPreview(null);
+      setPhotoBase64(null);
+      setPhotoError(null);
       setAwayMode(false);
       startedPollingAtRef.current = Date.now();
       setSlowVerification(false);
@@ -472,6 +555,9 @@ function App() {
     }
     setSubmission(null);
     setEvidence('');
+    setPhotoPreview(null);
+    setPhotoBase64(null);
+    setPhotoError(null);
     idempotencyKeyRef.current = null;
     startedPollingAtRef.current = null;
     setError(null);
@@ -500,14 +586,29 @@ function App() {
             height="56"
           />
         </a>
-        <div className="player-pill">
-          <span className="player-dot" />
-          <span className="player-region">
-            {guest?.region ?? 'Trinidad'} explorer
-          </span>
-          <strong className="player-xp">
-            {(guest?.xp ?? 0).toLocaleString()} XP
-          </strong>
+        <div className="topbar-controls">
+          <label className="region-selector-wrapper" htmlFor="region-select">
+            <span className="region-selector-label">Island:</span>
+            <select
+              id="region-select"
+              className="region-select"
+              value={selectedRegion}
+              onChange={(e) => handleRegionChange(e.target.value as 'Trinidad' | 'Tobago')}
+              aria-label="Select island region"
+            >
+              <option value="Trinidad">🇹🇹 Trinidad</option>
+              <option value="Tobago">🏝️ Tobago</option>
+            </select>
+          </label>
+          <div className="player-pill">
+            <span className="player-dot" />
+            <span className="player-region">
+              {guest?.region ?? selectedRegion} explorer
+            </span>
+            <strong className="player-xp">
+              {(guest?.xp ?? 0).toLocaleString()} XP
+            </strong>
+          </div>
         </div>
       </header>
 
@@ -614,16 +715,49 @@ function App() {
                     {acceptance.status === 'retry' && verification?.reason && (
                       <p className="retry-reason">{verification.reason}</p>
                     )}
+
+                    {/* Photo Evidence Section */}
+                    <div className="photo-evidence-section">
+                      <label className="photo-upload-label" htmlFor="photo-upload">
+                        📸 {photoPreview ? 'Change photo proof' : 'Add photo proof (recommended)'}
+                      </label>
+                      <input
+                        id="photo-upload"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        capture="environment"
+                        className="photo-input"
+                        onChange={handlePhotoSelect}
+                      />
+                      {photoError && <p className="photo-error">{photoError}</p>}
+                      {photoPreview && (
+                        <div className="photo-preview-container">
+                          <img
+                            src={photoPreview}
+                            alt="Photo proof preview"
+                            className="photo-preview-img"
+                          />
+                          <button
+                            type="button"
+                            className="photo-remove-btn"
+                            onClick={handlePhotoRemove}
+                            aria-label="Remove photo"
+                          >
+                            ✕ Remove photo
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     <label className="visually-hidden" htmlFor="evidence">
                       Your quest reflection
                     </label>
                     <textarea
                       id="evidence"
                       onChange={(event) => setEvidence(event.target.value)}
-                      placeholder="What did you notice?"
+                      placeholder={photoPreview ? 'Optional: What did you notice? Add any context...' : 'What did you notice? Describe what you saw or upload a photo above.'}
                       value={evidence}
-                      required
-                      rows={6}
+                      rows={4}
                     />
                     <div className="form-footer">
                       <span>
@@ -633,18 +767,18 @@ function App() {
                         className="button button-primary"
                         disabled={
                           submitting ||
-                          !evidence.trim() ||
+                          (!evidence.trim() && !photoBase64) ||
                           Array.from(evidence.trim()).length >
                             MAX_EVIDENCE_CHARACTERS
                         }
                         type="submit"
                       >
-                        {submitting ? 'Sending…' : 'Submit reflection'}
+                        {submitting ? 'Sending…' : 'Submit proof'}
                       </button>
                     </div>
                     <p className="privacy-note">
-                      Your reflection is sent securely for verification and
-                      isn’t saved in this browser.
+                      Your proof is sent securely for verification and
+                      photos are purged after 24 hours.
                     </p>
                   </form>
                 )}
@@ -656,7 +790,7 @@ function App() {
         <section className="board-view">
           <div className="hero">
             <div className="hero-copy">
-              <p className="eyebrow">TRINIDAD · DAILY QUESTS</p>
+              <p className="eyebrow">{selectedRegion.toUpperCase()} · DAILY QUESTS</p>
               <h1>
                 The world is
                 <br />
@@ -680,12 +814,14 @@ function App() {
               <path
                 d="M80 15c10 5 17 14 17 25 0 7-5 12-2 19 3 8 13 12 12 22-1 7-8 11-8 19 1 10 10 17 7 26-2 7-11 10-12 18-1 9 8 16 4 24-3 5-11 7-13 14-2 8 3 16-2 22-5 7-16 6-21 13-6 8-4 18-10 25-6 7-16 7-22 13-7 7-8 19-17 23-7 3-15-1-23-1-7 1-16 5-21 0-5-4-3-12-5-19-2-9-10-15-9-24 1-8 11-13 11-21 0-7-8-13-6-20 1-8 11-12 12-20 1-7-6-14-3-21 3-7 13-8 17-14 5-8 0-19 5-27 5-7 16-7 22-13 5-6 5-16 11-20 7-5 16 0 24-4 7-3 10-12 17-15 7-4 15 0 22-4 5-3 7-11 12-14Z"
                 stroke="currentColor"
-                strokeWidth="1.4"
+                strokeWidth={selectedRegion === 'Trinidad' ? '2.4' : '1.2'}
+                className={selectedRegion === 'Trinidad' ? 'map-island-active' : 'map-island-inactive'}
               />
               <path
                 d="m122 62 4-6 8 2 3 5-5 5-8-1-2-5Z"
                 stroke="currentColor"
-                strokeWidth="1.4"
+                strokeWidth={selectedRegion === 'Tobago' ? '2.4' : '1.2'}
+                className={selectedRegion === 'Tobago' ? 'map-island-active' : 'map-island-inactive'}
               />
               <path
                 d="M100 76 67 107l27 31-34 35 17 27-39 31"

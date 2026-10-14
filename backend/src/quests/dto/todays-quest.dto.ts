@@ -20,8 +20,8 @@ export class TodaysQuestDto {
   })
   description!: string;
 
-  @ApiProperty({ enum: ['Trinidad'], example: 'Trinidad' })
-  region!: 'Trinidad';
+  @ApiProperty({ enum: ['Trinidad', 'Tobago'], example: 'Trinidad' })
+  region!: 'Trinidad' | 'Tobago';
 
   @ApiProperty({ example: 15, minimum: 10, maximum: 120 })
   durationMinutes!: number;
@@ -35,8 +35,8 @@ export class TodaysQuestDto {
   @ApiProperty({ enum: [25, 50, 100], example: 25 })
   xp!: number;
 
-  @ApiProperty({ enum: ['text'], example: 'text' })
-  proofType!: 'text';
+  @ApiProperty({ enum: ['text', 'photo'], example: 'text' })
+  proofType!: 'text' | 'photo';
 
   @ApiProperty({ example: 'Describe three details you noticed.' })
   proofInstructions!: string;

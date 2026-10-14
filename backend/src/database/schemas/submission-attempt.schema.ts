@@ -34,8 +34,14 @@ export class SubmissionAttempt {
   @Prop({ type: String, required: true, match: /^[a-f0-9]{64}$/ })
   idempotencyKeyHash!: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false, default: '' })
   evidenceText!: string;
+
+  @Prop({ type: String, required: false, default: null })
+  evidencePhoto?: string | null;
+
+  @Prop({ type: String, required: true, enum: ['text', 'photo', 'both'], default: 'text' })
+  evidenceType!: 'text' | 'photo' | 'both';
 
   @Prop({
     type: String,

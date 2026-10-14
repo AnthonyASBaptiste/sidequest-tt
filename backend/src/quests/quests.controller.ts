@@ -4,6 +4,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
@@ -97,11 +98,11 @@ export class QuestsController {
   @UseGuards(GuestSessionGuard)
   @ApiOkResponse({
     description:
-      'The published Trinidad quest pool for today, or latest fallback, with this guest’s completion metadata.',
+      'The published quest pool for today, or latest fallback, with this guest’s completion metadata.',
     type: TodayQuestBoardDto,
   })
   @ApiServiceUnavailableResponse({
-    description: 'No published Trinidad quest pool is available.',
+    description: 'No published quest pool is available.',
     type: QuestBoardUnavailableDto,
   })
   @ApiUnauthorizedResponse({
@@ -109,7 +110,8 @@ export class QuestsController {
   })
   getTodaysQuestBoard(
     @Req() request: GuestAuthenticatedRequest,
+    @Query('region') region?: string,
   ): Promise<TodayQuestBoardDto> {
-    return this.questsService.getTodaysQuestBoard(request.guestUserId);
+    return this.questsService.getTodaysQuestBoard(request.guestUserId, region);
   }
 }

@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { QUEST_REGIONS, type QuestRegion } from './quest-template.schema.js';
 
 @Schema({
   collection: 'questPoolBatches',
@@ -8,8 +9,8 @@ export class QuestPoolBatch {
   @Prop({ type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ })
   poolDate!: string;
 
-  @Prop({ type: String, required: true, enum: ['Trinidad'], default: 'Trinidad' })
-  region!: 'Trinidad';
+  @Prop({ type: String, required: true, enum: QUEST_REGIONS, default: 'Trinidad' })
+  region!: QuestRegion;
 
   @Prop({
     type: String,

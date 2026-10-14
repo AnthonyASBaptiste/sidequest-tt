@@ -101,6 +101,7 @@ export class SubmissionsController {
       request.guestUserId,
       acceptanceId,
       body?.evidenceText,
+      body?.evidencePhoto,
       idempotencyKey,
     );
     response.status(result.created ? 201 : 200);

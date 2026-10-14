@@ -9,7 +9,7 @@ import { Types } from 'mongoose';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { QuestPoolBatch } from '../database/schemas/quest-pool-batch.schema.js';
 import { Quest } from '../database/schemas/quest.schema.js';
-import { QuestTemplate } from '../database/schemas/quest-template.schema.js';
+import { QuestTemplate, QUEST_REGIONS, type QuestRegion } from '../database/schemas/quest-template.schema.js';
 import type { QuestRarity } from '../database/schemas/quest-template.schema.js';
 import {
   PublishGeneratedQuestPoolDto,
@@ -40,6 +40,7 @@ interface GeneratedCandidate {
 
 interface PublishRequest {
   poolDate: unknown;
+  region?: unknown;
   model: unknown;
   quests: unknown;
 }
@@ -55,9 +56,10 @@ export class QuestPoolGenerationService {
     @InjectModel(Quest.name) private readonly questModel: Model<Quest>,
   ) {}
 
-  async getTemplates(): Promise<QuestPoolTemplatesResponseDto> {
+  async getTemplates(rawRegion?: string): Promise<QuestPoolTemplatesResponseDto> {
+    const region: QuestRegion = rawRegion === 'Tobago' ? 'Tobago' : 'Trinidad';
     const templates = await this.questTemplateModel
-      .find({ active: true, allowedRegions: 'Trinidad' })
+      .find({ active: true, allowedRegions: region })
       .sort({ _id: 1 })
       .lean()
       .exec();
@@ -65,24 +67,25 @@ export class QuestPoolGenerationService {
     if (templates.length < POOL_MIN_SIZE) {
       throw new ServiceUnavailableException({
         code: 'not_enough_active_quest_templates',
-        message: 'At least five active Trinidad quest templates are required.',
+        message: `At least five active ${region} quest templates are required.`,
       });
     }
 
     const poolDate = getTrinidadDate(new Date());
     const existingBatch = await this.questPoolBatchModel
-      .findOne({ region: 'Trinidad', poolDate, status: 'published' })
+      .findOne({ region, poolDate, status: 'published' })
       .select({ _id: 1 })
       .lean()
       .exec();
     const requestedBatch = await this.questPoolBatchModel
-      .findOne({ region: 'Trinidad', poolDate, status: 'generating' })
+      .findOne({ region, poolDate, status: 'generating' })
       .select({ _id: 1 })
       .lean()
       .exec();
 
     return {
       poolDate,
+      region,
       poolAlreadyPublished: Boolean(existingBatch),
       generationRequested: Boolean(requestedBatch),
       templates: templates.slice(0, POOL_MAX_SIZE).map((template) => ({
@@ -99,10 +102,14 @@ export class QuestPoolGenerationService {
     };
   }
 
-  async requestPoolGeneration(poolDate: string, now = new Date()): Promise<void> {
+  async requestPoolGeneration(
+    poolDate: string,
+    now = new Date(),
+    region: QuestRegion = 'Trinidad',
+  ): Promise<void> {
     if (poolDate !== getTrinidadDate(now)) return;
     const existing = await this.questPoolBatchModel
-      .findOne({ region: 'Trinidad', poolDate })
+      .findOne({ region, poolDate })
       .lean()
       .exec();
     if (existing?.status === 'published' || existing?.status === 'generating') return;
@@ -117,7 +124,7 @@ export class QuestPoolGenerationService {
     try {
       await this.questPoolBatchModel.create({
         poolDate,
-        region: 'Trinidad',
+        region,
         status: 'generating',
         questCount: 0,
         model: 'gemma4:e2b-it-qat',
@@ -137,16 +144,17 @@ export class QuestPoolGenerationService {
     now = new Date(),
   ): Promise<PublishGeneratedQuestPoolResponseDto> {
     const request = validatePoolRequest(rawRequest as PublishRequest);
+    const region = request.region ?? 'Trinidad';
     const today = getTrinidadDate(now);
     if (request.poolDate !== today) {
       throw new ConflictException({
         code: 'quest_pool_date_mismatch',
-        message: 'A generated pool can only be published for today in Trinidad.',
+        message: 'A generated pool can only be published for today.',
       });
     }
 
     const existing = await this.questPoolBatchModel
-      .findOne({ region: 'Trinidad', poolDate: today })
+      .findOne({ region, poolDate: today })
       .lean()
       .exec();
     if (existing?.status === 'published') {
@@ -160,7 +168,7 @@ export class QuestPoolGenerationService {
       .find({
         _id: { $in: templateIds },
         active: true,
-        allowedRegions: 'Trinidad',
+        allowedRegions: region,
       })
       .lean()
       .exec();
@@ -168,7 +176,7 @@ export class QuestPoolGenerationService {
     if (byId.size !== request.quests.length) {
       throw new BadRequestException({
         code: 'invalid_quest_template',
-        message: 'Every generated quest must reference a unique active Trinidad template.',
+        message: `Every generated quest must reference a unique active ${region} template.`,
       });
     }
 
@@ -200,6 +208,18 @@ export class QuestPoolGenerationService {
         });
       }
 
+      const instructionsLower = template.proofInstructions.toLowerCase();
+      const titleLower = candidate.title.toLowerCase();
+      const descLower = candidate.description.toLowerCase();
+      const isPhotoProof =
+        instructionsLower.includes('photo') ||
+        instructionsLower.includes('picture') ||
+        titleLower.includes('photo') ||
+        titleLower.includes('picture') ||
+        descLower.includes('photo') ||
+        descLower.includes('picture') ||
+        descLower.includes('snap');
+
       return new this.questModel({
         batchId: new Types.ObjectId(),
         slot,
@@ -207,13 +227,13 @@ export class QuestPoolGenerationService {
         templateVersion: template.version,
         title: candidate.title,
         description: candidate.description,
-        region: 'Trinidad',
+        region,
         localContext: null,
         durationMinutes: candidate.durationMinutes,
         difficulty: template.difficulty,
         rarity: template.rarity,
         xp: XP_BY_RARITY[template.rarity],
-        proofType: 'text',
+        proofType: isPhotoProof ? 'photo' : 'text',
         proofInstructions: template.proofInstructions,
         completionCriteria: [...template.completionCriteria],
         safetyGuidance: [...template.safetyGuidance],
@@ -338,12 +358,21 @@ export class QuestPoolGenerationService {
 
 function validatePoolRequest(raw: PublishRequest): {
   poolDate: string;
+  region: QuestRegion;
   model: string;
   quests: GeneratedCandidate[];
 } {
-  if (!isRecord(raw) || !hasExactKeys(raw, ['poolDate', 'model', 'quests'])) {
+  if (!isRecord(raw)) {
     throw invalidPool();
   }
+  const hasRegion = Object.hasOwn(raw, 'region');
+  const expectedKeys = hasRegion
+    ? ['poolDate', 'region', 'model', 'quests']
+    : ['poolDate', 'model', 'quests'];
+  if (!hasExactKeys(raw, expectedKeys)) {
+    throw invalidPool();
+  }
+  const region: QuestRegion = raw.region === 'Tobago' ? 'Tobago' : 'Trinidad';
   if (
     typeof raw.poolDate !== 'string' ||
     !/^\d{4}-\d{2}-\d{2}$/.test(raw.poolDate) ||
@@ -395,8 +424,9 @@ function validatePoolRequest(raw: PublishRequest): {
     throw invalidPool();
   }
   return {
-    poolDate: raw.poolDate,
-    model: raw.model,
+    poolDate: raw.poolDate as string,
+    region,
+    model: raw.model as string,
     quests,
   };
 }

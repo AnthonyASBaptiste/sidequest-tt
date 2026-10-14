@@ -8,7 +8,7 @@ import { GUEST_SESSION_MAX_AGE_MS } from './guest-session.constants.js';
 export interface GuestIdentity {
   id: Types.ObjectId;
   name?: string;
-  region: 'Trinidad';
+  region: 'Trinidad' | 'Tobago';
   xp: number;
 }
 

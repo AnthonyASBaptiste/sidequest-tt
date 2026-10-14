@@ -46,6 +46,7 @@ export class SubmissionsService {
     userId: Types.ObjectId,
     acceptanceId: string,
     rawEvidenceText: unknown,
+    rawEvidencePhoto: unknown,
     rawIdempotencyKey: string | undefined,
     now = new Date(),
   ): Promise<SubmissionResult> {
@@ -57,12 +58,17 @@ export class SubmissionsService {
       throw this.acceptanceNotFound();
     }
 
-    const evidenceText = validateEvidenceText(rawEvidenceText);
+    const { evidenceText, evidencePhoto, evidenceType } = validateEvidence(
+      rawEvidenceText,
+      rawEvidencePhoto,
+    );
     const idempotencyKeyHash = hashIdempotencyKey(
       validateIdempotencyKey(rawIdempotencyKey),
     );
+    // If photo is present, retain for 1 day (24h) to save storage. If text only, 30 days.
+    const retentionDays = evidencePhoto ? 1 : EVIDENCE_RETENTION_DAYS;
     const evidenceDeleteAt = new Date(
-      now.getTime() + EVIDENCE_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+      now.getTime() + retentionDays * 24 * 60 * 60 * 1000,
     );
     const session = await this.connection.startSession();
 
@@ -128,6 +134,8 @@ export class SubmissionsService {
           attemptNumber,
           idempotencyKeyHash,
           evidenceText,
+          evidencePhoto,
+          evidenceType,
           status: 'pending',
           verification: {},
           lastErrorCode: null,
@@ -302,24 +310,77 @@ export class SubmissionsService {
   }
 }
 
-function validateEvidenceText(value: unknown): string {
-  if (typeof value !== 'string') {
+const MAX_PHOTO_BASE64_LENGTH = 1_500_000; // ~1MB binary payload
+
+function validateEvidence(
+  rawText: unknown,
+  rawPhoto: unknown,
+): {
+  evidenceText: string;
+  evidencePhoto: string | null;
+  evidenceType: 'text' | 'photo' | 'both';
+} {
+  const hasText = typeof rawText === 'string' && rawText.trim().length > 0;
+  const hasPhoto = typeof rawPhoto === 'string' && rawPhoto.trim().length > 0;
+
+  if (!hasText && !hasPhoto) {
     throw new BadRequestException({
-      code: 'invalid_evidence_text',
-      message: 'evidenceText must be a string containing 1 to 2,000 characters.',
+      code: 'missing_evidence',
+      message: 'You must provide either photo proof or a written reflection.',
     });
   }
 
-  const evidenceText = value.trim();
-  const characterCount = Array.from(evidenceText).length;
-  if (characterCount === 0 || characterCount > EVIDENCE_MAX_CHARACTERS) {
-    throw new BadRequestException({
-      code: 'invalid_evidence_text',
-      message: 'evidenceText must contain 1 to 2,000 characters after trimming.',
-    });
+  let evidenceText = '';
+  if (hasText) {
+    evidenceText = (rawText as string).trim();
+    if (Array.from(evidenceText).length > EVIDENCE_MAX_CHARACTERS) {
+      throw new BadRequestException({
+        code: 'invalid_evidence_text',
+        message: 'evidenceText must contain 1 to 2,000 characters after trimming.',
+      });
+    }
+    // Sanitize control characters (except newline, tab, carriage return)
+    evidenceText = evidenceText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   }
 
-  return evidenceText;
+  let evidencePhoto: string | null = null;
+  if (hasPhoto) {
+    const photoStr = (rawPhoto as string).trim();
+    if (photoStr.length > MAX_PHOTO_BASE64_LENGTH) {
+      throw new BadRequestException({
+        code: 'photo_too_large',
+        message: 'Photo proof exceeds the maximum allowed size (1MB). Please use a compressed image.',
+      });
+    }
+
+    const match = photoStr.match(/^data:image\/(jpeg|jpg|png|webp);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) {
+      throw new BadRequestException({
+        code: 'invalid_photo_format',
+        message: 'Photo proof must be a valid base64 data URL of type JPEG, PNG, or WebP.',
+      });
+    }
+
+    const base64Data = match[2];
+    const headerBuffer = Buffer.from(base64Data.slice(0, 32), 'base64');
+    const isJpeg = headerBuffer[0] === 0xff && headerBuffer[1] === 0xd8 && headerBuffer[2] === 0xff;
+    const isPng = headerBuffer[0] === 0x89 && headerBuffer[1] === 0x50 && headerBuffer[2] === 0x4e && headerBuffer[3] === 0x47;
+    const isWebp = headerBuffer.subarray(0, 4).toString('ascii') === 'RIFF' && headerBuffer.subarray(8, 12).toString('ascii') === 'WEBP';
+
+    if (!isJpeg && !isPng && !isWebp) {
+      throw new BadRequestException({
+        code: 'invalid_image_payload',
+        message: 'The submitted image file header is invalid or corrupt. Only JPEG, PNG, and WebP images are permitted.',
+      });
+    }
+
+    evidencePhoto = photoStr;
+  }
+
+  const evidenceType: 'text' | 'photo' | 'both' =
+    hasText && hasPhoto ? 'both' : hasPhoto ? 'photo' : 'text';
+
+  return { evidenceText, evidencePhoto, evidenceType };
 }
 
 function validateIdempotencyKey(value: string | undefined): string {

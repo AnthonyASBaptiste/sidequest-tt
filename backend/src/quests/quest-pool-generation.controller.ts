@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -26,15 +26,17 @@ export class QuestPoolGenerationController {
   @Get('templates')
   @ApiOkResponse({
     description:
-      'Returns active, human-reviewed Trinidad templates for the current Trinidad date.',
+      'Returns active, human-reviewed templates for the specified or current Trinidad/Tobago date.',
     type: QuestPoolTemplatesResponseDto,
   })
   @ApiUnauthorizedResponse({ description: 'Invalid worker credentials.' })
   @ApiServiceUnavailableResponse({
     description: 'Worker authentication is not configured.',
   })
-  getTemplates(): Promise<QuestPoolTemplatesResponseDto> {
-    return this.generationService.getTemplates();
+  getTemplates(
+    @Query('region') region?: string,
+  ): Promise<QuestPoolTemplatesResponseDto> {
+    return this.generationService.getTemplates(region);
   }
 
   @Post('publish')

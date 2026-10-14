@@ -4,8 +4,10 @@ import type { Types } from 'mongoose';
 import {
   QUEST_DIFFICULTIES,
   QUEST_RARITIES,
+  QUEST_REGIONS,
   type QuestDifficulty,
   type QuestRarity,
+  type QuestRegion,
 } from './quest-template.schema.js';
 
 const RARITY_XP: Record<string, number> = {
@@ -40,8 +42,8 @@ export class Quest {
   @Prop({ type: String, required: true, maxlength: 2000 })
   description!: string;
 
-  @Prop({ type: String, required: true, enum: ['Trinidad'], default: 'Trinidad' })
-  region!: 'Trinidad';
+  @Prop({ type: String, required: true, enum: QUEST_REGIONS, default: 'Trinidad' })
+  region!: QuestRegion;
 
   @Prop({ type: String, default: null, maxlength: 240 })
   localContext!: string | null;
@@ -80,8 +82,8 @@ export class Quest {
   @Prop({ type: Number, required: true, enum: [25, 50, 100] })
   xp!: number;
 
-  @Prop({ type: String, required: true, enum: ['text'], default: 'text' })
-  proofType!: 'text';
+  @Prop({ type: String, required: true, enum: ['text', 'photo'], default: 'text' })
+  proofType!: 'text' | 'photo';
 
   @Prop({ type: String, required: true, maxlength: 1000 })
   proofInstructions!: string;

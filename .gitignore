@@ -22,3 +22,6 @@ yarn-debug.log*
 .vscode/
 *.swp
 *.swo
+
+# Repomix
+repomix-output.*

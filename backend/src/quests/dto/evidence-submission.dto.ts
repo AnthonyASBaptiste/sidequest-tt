@@ -6,8 +6,16 @@ export class CreateEvidenceSubmissionDto {
     example: 'I noticed three different styles of windows on the buildings.',
     minLength: 1,
     maxLength: 2000,
+    required: false,
   })
-  evidenceText!: string;
+  evidenceText?: string;
+
+  @ApiProperty({
+    example: 'data:image/jpeg;base64,...',
+    description: 'Base64 data URL of the compressed photo proof (JPEG/PNG/WebP, max 1MB).',
+    required: false,
+  })
+  evidencePhoto?: string;
 }
 
 export class EvidenceSubmissionDto {

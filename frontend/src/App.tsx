@@ -597,7 +597,7 @@ function App() {
               aria-label="Select island region"
             >
               <option value="Trinidad">🇹🇹 Trinidad</option>
-              <option value="Tobago">🏝️ Tobago</option>
+              <option value="Tobago">🇹🇹 Tobago</option>
             </select>
           </label>
           <div className="player-pill">

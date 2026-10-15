@@ -23,6 +23,9 @@ type QuestBoard = {
   poolDate: string | null;
   fallback: boolean;
   generationRequested: boolean;
+  region?: 'Trinidad' | 'Tobago';
+  seasonName?: string;
+  seasonThemes?: string;
   quests: Quest[];
 };
 
@@ -790,7 +793,14 @@ function App() {
         <section className="board-view">
           <div className="hero">
             <div className="hero-copy">
-              <p className="eyebrow">{selectedRegion.toUpperCase()} · DAILY QUESTS</p>
+              <div className="hero-eyebrow-row">
+                <p className="eyebrow">{selectedRegion.toUpperCase()} · DAILY QUESTS</p>
+                {board?.seasonName && (
+                  <span className="hero-season-pill" title={board.seasonThemes || undefined}>
+                    ✦ {board.seasonName}
+                  </span>
+                )}
+              </div>
               <h1>
                 The world is
                 <br />

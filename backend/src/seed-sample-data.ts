@@ -319,14 +319,36 @@ async function seedSampleData(): Promise<void> {
         const isPhoto = sample.proofInstructions.toLowerCase().includes('photo') ||
           sample.proofInstructions.toLowerCase().includes('picture');
 
+        // Tailor titles and descriptions to make Tobago authentically distinct from Trinidad
+        let title = sample.title;
+        let description = sample.description;
+
+        if (region === 'Tobago') {
+          if (sample.key === 'beach-in-the-north') {
+            title = 'Pigeon Point & Coastal Breeze';
+            description = 'Take a trip to an open public beach or scenic coastal shore in Tobago (like Pigeon Point, Store Bay, or Castara). Feel the Caribbean breeze, listen to the gentle waves, and take in the clear horizon.';
+          } else if (sample.key === 'try-a-new-food-place') {
+            title = 'Store Bay Crab & Dumpling Explorer';
+            description = 'Visit a local Tobago food stall, bakery, or coastal eatery. Savor iconic curried crab and dumplings, bene balls, or a freshly prepared local island treat.';
+          } else if (sample.key === 'cultural-landmark-or-event') {
+            title = 'Tobago Carnival & Fort Heritage Walk';
+            description = 'Explore an iconic Tobago landmark such as Fort King George, a Crown Point panyard, or the Scarborough Esplanade. Soak in the October Carnival pulse or colonial coastal heritage.';
+          } else if (sample.key === 'picture-on-green-bench') {
+            title = 'Fort King George Lookout Pause';
+            description = 'Head to a scenic park, botanical garden, or Fort King George overlooking Scarborough harbor. Find an open public bench or scenic resting spot and capture the view.';
+          } else {
+            title = `Tobago: ${sample.title}`;
+          }
+        }
+
         return new questModel({
           _id: stableObjectId(`sidequest-sample-quest-${region.toLowerCase()}-${poolDate}-${sample.key}`),
           batchId: regionBatchId,
           slot,
           templateId,
           templateVersion: 1,
-          title: region === 'Tobago' ? sample.title.replace('Northern', 'Coastal').replace('Island', 'Tobago') : sample.title,
-          description: region === 'Tobago' ? sample.description.replace('in the north of the island', 'along the scenic Tobago coastline') : sample.description,
+          title,
+          description,
           region,
           localContext: null,
           durationMinutes: sample.durationMinutes,

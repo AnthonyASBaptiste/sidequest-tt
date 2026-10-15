@@ -23,7 +23,7 @@ if (args[0] === '--preview') {
     throw new Error('--preview requires --out <file>.');
   }
   const previewRegion = specifiedRegion || 'Trinidad';
-  const payload = await generatePool(previewRegion);
+  const payload = await generatePool(previewRegion, true);
   await writeFile(resolve(outputPath), `${JSON.stringify(payload, null, 2)}\n`, {
     mode: 0o600,
   });
@@ -70,9 +70,9 @@ if (args[0] === '--preview') {
   );
 }
 
-async function generatePool(region = 'Trinidad') {
+async function generatePool(region = 'Trinidad', isPreview = false) {
   const templatesResponse = await fetchTemplates(region);
-  if (templatesResponse.poolAlreadyPublished) {
+  if (!isPreview && templatesResponse.poolAlreadyPublished) {
     throw new Error(
       `A quest pool is already published for ${region} on ${templatesResponse.poolDate}; the existing pool was left unchanged.`,
     );
@@ -181,16 +181,19 @@ SAFETY FIRST (MANDATORY):
 - Players should keep their phone away while moving and stay aware of their real-world environment.
 
 CULTURAL & DYNAMIC INSPIRATION:
-- Today is in the ${temporalContext.seasonName}.
+- Active Season: ${temporalContext.seasonName}.
 - Seasonal guidance: ${temporalContext.seasonalMandate}
 - Day-of-week rhythm: ${temporalContext.dayRhythm}
+- Local Island Flavors & Culinary anchors: ${temporalContext.culinaryAnchors || 'Local street food, fresh fruit, and neighborhood bakeries.'}
+- Local Landmarks & Key Venues: ${temporalContext.geographicalAnchors || 'Public parks, coastal points, and community squares.'}
 - Real-time event inspirations in the area:
 ${eventsList}
 
 QUEST FLAVOR:
-- Encourage sensory exploration: tasting a local food spot (doubles, bake & shark, hot bread from a neighborhood bakery, fresh seasonal fruit), enjoying a coastal sea breeze (northern beaches like Maracas/Las Cuevas in Trinidad or Pigeon Point/Castara in Tobago), or fun scavenger moments like taking a picture on a green park bench or near a vibrant mural.
+- Ground every quest in the real topography and lifestyle of ${region}. Never confuse Trinidad landmarks (Savannah, Maracas, Chaguanas, San Fernando) with Tobago landmarks (Store Bay, Pigeon Point, Buccoo, Castara, Charlotteville, Fort King George).
+- Encourage sensory exploration: tasting iconic food for ${region} (${region === 'Tobago' ? 'curried crab & dumpling, bene balls, local souse, fresh ocean catch' : 'doubles, bake & shark, hot hops bread, fresh coconut water'}), taking in ocean vistas or shaded park paths, and spotting local color.
 - Clearly tell the player how to satisfy the proof instructions (photo proof or written reflection).
-- Keep titles punchy (e.g. "Green Bench Scavenger", "The Northern Coastal Breeze", "Island Flavor Quest") and descriptions actionable.
+- Keep titles punchy and authentic (e.g. ${region === 'Tobago' ? '"Store Bay Dumpling Quest", "Buccoo Coastal Pause", "Fort King George Lookout"' : '"Savannah Green Bench Scavenger", "Northern Coastal Breeze", "Chaguanas Spice Quest"'}) and descriptions actionable.
 
 OUTPUT FORMAT (STRICT):
 You must output a single JSON object with a single key "quests", which is an array of exactly ${templates.length} quest objects (one for each template provided in the user prompt).

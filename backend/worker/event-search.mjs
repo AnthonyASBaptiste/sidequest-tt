@@ -152,45 +152,171 @@ async function searchWithTavily(query, region, apiKey) {
 }
 
 function getOfflineSeasonalInspirations(region, temporalContext) {
+  const isTobago = region === 'Tobago';
+
+  // 1. Christmas & Parang
   if (temporalContext.seasonName.includes('Christmas')) {
     return [
       {
         title: 'Christmas Light Village & Parang Showcase',
         snippet: 'Public parks and town squares adorned with holiday light arches, nativity displays, and seasonal parang tunes.',
-        venue: region === 'Tobago' ? 'Scarborough Esplanade' : 'Queen\'s Park Savannah',
+        venue: isTobago ? 'Scarborough Esplanade' : 'Queen\'s Park Savannah',
         date: 'Evening',
         source: 'offline:seasonal',
       },
       {
         title: 'Holiday Pastelle & Sorrel Market',
         snippet: 'Local vendors and bakeries preparing steaming cornmeal pastelles, freshly brewed ginger beer, and chilled sorrel.',
-        venue: region,
+        venue: isTobago ? 'Scarborough Market / Crown Point' : 'Port of Spain / Arima Market',
         date: 'Daily',
         source: 'offline:seasonal',
       },
     ];
   }
 
+  // 2. Tobago Carnival (October) vs Trinidad Carnival (Pre-Lenten)
   if (temporalContext.seasonName.includes('Carnival')) {
+    if (isTobago) {
+      return [
+        {
+          title: 'Tobago Carnival Mas Camp & Panyard Pulse',
+          snippet: 'Steelbands and mas camps tuning up for Crown Point J\'ouvert, night mas, and street parades with lively soca sound systems.',
+          venue: 'Crown Point Strip / Buccoo Panyard / Scarborough',
+          date: 'Evening',
+          source: 'offline:seasonal',
+        },
+        {
+          title: 'Shaw Park Cultural Carnival Concert',
+          snippet: 'Live calypso, soca monarch showcases, and steel orchestral music celebrating the October Carnival energy.',
+          venue: 'Shaw Park Cultural Complex, Scarborough',
+          date: 'Night',
+          source: 'offline:seasonal',
+        },
+      ];
+    }
+
     return [
       {
         title: 'Panyard Open Evening Rehearsal',
         snippet: 'Steelbands rehearsing Panorama arrangements in open panyards. The public gathers on the perimeter to listen.',
-        venue: region === 'Tobago' ? 'Buccoo / Scarborough Panyards' : 'Woodbrook / Port of Spain Panyards',
+        venue: 'Woodbrook / Port of Spain Panyards',
         date: '7:00 PM',
         source: 'offline:seasonal',
       },
       {
         title: 'Calypso Tent Performance',
         snippet: 'Live social commentary and wit from calypsonians and humorists in a classic tent or hall setting.',
-        venue: region === 'Tobago' ? 'Shaw Park Cultural Complex' : 'Queen\'s Hall',
+        venue: 'Queen\'s Hall / Kaiso House',
         date: 'Weekend',
         source: 'offline:seasonal',
       },
     ];
   }
 
-  if (region === 'Tobago') {
+  // 3. Divali & Heritage Season (Trinidad in October/November)
+  if (temporalContext.seasonName.includes('Divali')) {
+    return [
+      {
+        title: 'Divali Nagar & Cultural Stage',
+        snippet: 'Illuminated grounds, clay deyas flickering on bent bamboo frames, devotional music, and sweet booths serving hot kurma and jalebi.',
+        venue: 'Divali Nagar Site, Chaguanas',
+        date: 'Evening',
+        source: 'offline:seasonal',
+      },
+      {
+        title: 'Community Deya Light & Bamboo Arch Stroll',
+        snippet: 'Neighborhoods and civic squares lit by thousands of glowing clay deyas welcoming the festival of lights.',
+        venue: 'Central & South Trinidad Town Squares',
+        date: 'Sunset / Evening',
+        source: 'offline:seasonal',
+      },
+    ];
+  }
+
+  // 4. Tobago Jazz & Heritage Music (April)
+  if (temporalContext.seasonName.includes('Jazz')) {
+    return [
+      {
+        title: 'Tobago Jazz Coastal Acoustic Session',
+        snippet: 'Live jazz, acoustic steelpan melodies, and coastal sunset rhythms against the backdrop of the Caribbean Sea.',
+        venue: 'Pigeon Point Heritage Park & Speyside',
+        date: 'Sunset',
+        source: 'offline:seasonal',
+      },
+      {
+        title: 'Store Bay Local Pan & Seafood Lime',
+        snippet: 'Seaside dining with curried crab & dumpling accompanied by relaxing local pan and jazz arrangements.',
+        venue: 'Store Bay Beach Facility',
+        date: 'Afternoon',
+        source: 'offline:seasonal',
+      },
+    ];
+  }
+
+  // 5. Tobago Heritage Festival (July - early August)
+  if (temporalContext.seasonName.includes('Heritage Festival')) {
+    return [
+      {
+        title: 'Tobago Heritage Village Showcase & Folk Tales',
+        snippet: 'Reenactments of the Moriah Ole Time Wedding, Salaka Feast rituals, traditional drumming, and village heirloom crafts.',
+        venue: 'Moriah / Charlotteville / Les Coteaux',
+        date: 'Daytime',
+        source: 'offline:seasonal',
+      },
+      {
+        title: 'Folk Heritage Drumming & Village Food Fair',
+        snippet: 'Cast-iron pot oil-down, ground provisions, and infectious tambourine and fiddle rhythms in the village square.',
+        venue: 'Heritage Villages across Tobago',
+        date: 'Afternoon',
+        source: 'offline:seasonal',
+      },
+    ];
+  }
+
+  // 6. Tobago Summer Beach Fete / Island Crashers (mid-August)
+  if (temporalContext.seasonName.includes('Island Crashers') || temporalContext.seasonName.includes('Beach Fete')) {
+    return [
+      {
+        title: 'Island Crashers & Great Fete Beach Lime',
+        snippet: 'Pigeon Point and Store Bay alive with summer beachgoers, boat charters, beach volleyball, and daytime soca rhythms.',
+        venue: 'Pigeon Point & Crown Point',
+        date: 'Daytime',
+        source: 'offline:seasonal',
+      },
+      {
+        title: 'Crown Point Summer Sunset Stroll',
+        snippet: 'Lively strip with street vendors, fresh fruit smoothies, local souse, and chilled coconut water.',
+        venue: 'Milford Road / Crown Point',
+        date: 'Evening',
+        source: 'offline:seasonal',
+      },
+    ];
+  }
+
+  // 7. Easter & Buccoo Goat Races
+  if (temporalContext.seasonName.includes('Easter') || temporalContext.seasonName.includes('Goat Race')) {
+    if (isTobago) {
+      return [
+        {
+          title: 'Buccoo Goat & Crab Race Historical Complex',
+          snippet: 'The unique, world-famous Easter tradition of jockeying trained racing goats and nimble crabs down the turf track.',
+          venue: 'Buccoo Integrated Facility',
+          date: 'Daytime',
+          source: 'offline:seasonal',
+        },
+        {
+          title: 'Mount Pleasant Coastal Kite Gathering',
+          snippet: 'Breezy green savannahs dotted with handmade singing kites soaring high over the Caribbean blue.',
+          venue: 'Mount Pleasant Recreation Ground',
+          date: 'Afternoon',
+          source: 'offline:seasonal',
+        },
+      ];
+    }
+  }
+
+  // Standard Fallback by Island
+  if (isTobago) {
     return [
       {
         title: 'Coastal Heritage & Village Trail',

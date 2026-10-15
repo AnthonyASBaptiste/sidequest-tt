@@ -25,6 +25,8 @@ import {
   TodayQuestBoardDto,
   TodaysQuestDto,
 } from './dto/todays-quest.dto.js';
+// @ts-expect-error worker/temporal-context.mjs is an ES module
+import { getTemporalContext } from '../../worker/temporal-context.mjs';
 
 interface AcceptanceRecord {
   _id: Types.ObjectId;
@@ -244,11 +246,16 @@ export class QuestsService {
       }
     }
 
+    const temporalContext = getTemporalContext(batch.poolDate, region);
+
     return {
       available: true,
       poolDate: batch.poolDate,
       fallback: batch.poolDate !== today,
       generationRequested: batch.poolDate !== today,
+      region,
+      seasonName: temporalContext.seasonName,
+      seasonThemes: temporalContext.seasonThemes,
       quests: quests.map((quest): TodaysQuestDto => {
         const lastCompletedAt =
           latestCompletionByQuest.get(quest._id.toString()) ?? null;

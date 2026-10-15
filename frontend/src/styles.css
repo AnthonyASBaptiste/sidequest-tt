@@ -204,7 +204,32 @@ a:focus-visible {
 }
 
 .hero .eyebrow {
+  margin: 0;
   color: var(--green);
+}
+
+.hero-eyebrow-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.hero-season-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(46, 125, 82, 0.1);
+  border: 1px solid rgba(46, 125, 82, 0.25);
+  color: #1b5e39;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
 }
 
 .hero h1 {

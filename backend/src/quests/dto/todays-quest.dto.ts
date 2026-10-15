@@ -93,6 +93,27 @@ export class TodayQuestBoardDto {
   })
   generationRequested!: boolean;
 
+  @ApiProperty({
+    example: 'Trinidad',
+    enum: ['Trinidad', 'Tobago'],
+    description: 'Island region of the quest board.',
+  })
+  region?: 'Trinidad' | 'Tobago';
+
+  @ApiProperty({
+    example: 'Divali & Heritage Season',
+    description: 'Active cultural or festival season detected for this date and island.',
+    required: false,
+  })
+  seasonName?: string;
+
+  @ApiProperty({
+    example: 'Divali Nagar in Chaguanas, deya lighting...',
+    description: 'Cultural themes informing today’s quests.',
+    required: false,
+  })
+  seasonThemes?: string;
+
   @ApiProperty({ type: [TodaysQuestDto] })
   quests!: TodaysQuestDto[];
 }

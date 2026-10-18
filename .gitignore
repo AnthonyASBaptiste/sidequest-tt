@@ -27,3 +27,4 @@ yarn-debug.log*
 repomix-output.*
 .vercel
 .env*
+.gstack/

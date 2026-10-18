@@ -783,25 +783,25 @@ function App() {
                         <div className="photo-upload-actions">
                           <label className="photo-upload-btn" htmlFor="photo-upload-camera">
                             📷 Take photo
+                            <input
+                              id="photo-upload-camera"
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              capture="environment"
+                              className="photo-input"
+                              onChange={handlePhotoSelect}
+                            />
                           </label>
-                          <input
-                            id="photo-upload-camera"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            capture="environment"
-                            className="photo-input"
-                            onChange={handlePhotoSelect}
-                          />
                           <label className="photo-upload-btn photo-upload-btn-secondary" htmlFor="photo-upload-gallery">
                             🖼️ Choose from library
+                            <input
+                              id="photo-upload-gallery"
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="photo-input"
+                              onChange={handlePhotoSelect}
+                            />
                           </label>
-                          <input
-                            id="photo-upload-gallery"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            className="photo-input"
-                            onChange={handlePhotoSelect}
-                          />
                         </div>
                       ) : (
                         <div className="photo-preview-container">

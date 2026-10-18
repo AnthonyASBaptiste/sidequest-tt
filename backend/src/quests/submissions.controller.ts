@@ -102,6 +102,7 @@ export class SubmissionsController {
       acceptanceId,
       body?.evidenceText,
       body?.evidencePhoto,
+      body?.photoCapturedAt,
       idempotencyKey,
     );
     response.status(result.created ? 201 : 200);

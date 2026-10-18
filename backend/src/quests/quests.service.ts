@@ -177,6 +177,24 @@ export class QuestsService {
     };
   }
 
+  async refreshTodaysQuestBoard(
+    userId: Types.ObjectId,
+    rawRegion?: string,
+    now = new Date(),
+  ): Promise<TodayQuestBoardDto> {
+    const region: QuestRegion = rawRegion === 'Tobago' ? 'Tobago' : 'Trinidad';
+    const today = getTrinidadDate(now);
+    await this.questPoolGenerationService.requestPoolGeneration(today, now, region, true);
+    return {
+      available: false,
+      poolDate: null,
+      fallback: false,
+      generationRequested: true,
+      region,
+      quests: [],
+    };
+  }
+
   async getTodaysQuestBoard(
     userId: Types.ObjectId,
     rawRegion?: string,

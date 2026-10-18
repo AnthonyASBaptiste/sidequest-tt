@@ -8,6 +8,7 @@ import {
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import type { Connection, Model } from 'mongoose';
+import ExifReader from 'exifreader';
 import { QuestAcceptance } from '../database/schemas/quest-acceptance.schema.js';
 import { SubmissionAttempt } from '../database/schemas/submission-attempt.schema.js';
 import {
@@ -17,6 +18,22 @@ import { PlayerVerificationStatusDto } from '../verification/dto/verification-wo
 
 const EVIDENCE_MAX_CHARACTERS = 2000;
 const EVIDENCE_RETENTION_DAYS = 30;
+const MAX_PHOTO_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+function extractExifTimestamp(buffer: Buffer): Date | null {
+  try {
+    const tags = ExifReader.load(buffer);
+    const dateTag = tags.DateTimeOriginal || tags.DateTimeDigitized || tags.DateTime;
+    if (!dateTag || !dateTag.description) return null;
+    const match = dateTag.description.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+    if (!match) return null;
+    const [_, y, m, d, hr, min, sec] = match;
+    const parsed = new Date(Date.UTC(+y, +m - 1, +d, +hr, +min, +sec));
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
 
 interface AttemptRecord {
   _id: Types.ObjectId;
@@ -47,21 +64,49 @@ export class SubmissionsService {
     acceptanceId: string,
     rawEvidenceText: unknown,
     rawEvidencePhoto: unknown,
+    rawPhotoCapturedAt: unknown,
     rawIdempotencyKey: string | undefined,
     now = new Date(),
   ): Promise<SubmissionResult> {
     const acceptanceObjectId = new Types.ObjectId(acceptanceId);
     const ownedAcceptance = await this.questAcceptanceModel
-      .exists({ _id: acceptanceObjectId, userId })
+      .findOne({ _id: acceptanceObjectId, userId })
+      .select({ _id: 1, acceptedAt: 1 })
+      .lean()
       .exec();
     if (!ownedAcceptance) {
       throw this.acceptanceNotFound();
     }
 
-    const { evidenceText, evidencePhoto, evidenceType } = validateEvidence(
+    const { evidenceText, evidencePhoto, evidenceType, photoCapturedAt } = validateEvidence(
       rawEvidenceText,
       rawEvidencePhoto,
+      rawPhotoCapturedAt,
     );
+
+    if (photoCapturedAt) {
+      const capturedMs = photoCapturedAt.getTime();
+      const acceptedMs = ownedAcceptance.acceptedAt.getTime();
+      // Compare against the quest acceptance timestamp:
+      // Allow photo captured anytime during the active quest period (since acceptedAt),
+      // as well as up to 24 hours before acceptance (to accommodate taking the photo while out before clicking accept in the app).
+      // Reject photos older than 24 hours before the acceptance timestamp.
+      if (capturedMs < acceptedMs - MAX_PHOTO_AGE_MS) {
+        const capturedDateStr = photoCapturedAt.toISOString().slice(0, 10);
+        const acceptedDateStr = ownedAcceptance.acceptedAt.toISOString().slice(0, 10);
+        throw new BadRequestException({
+          code: 'photo_timestamp_expired',
+          message: `This photo was captured on ${capturedDateStr}, before this quest was accepted on ${acceptedDateStr}. Please submit a photo taken during your quest.`,
+        });
+      }
+      if (capturedMs > now.getTime() + 10 * 60 * 1000) {
+        throw new BadRequestException({
+          code: 'photo_timestamp_invalid',
+          message: 'The photo timestamp appears to be set in the future. Please check your device clock.',
+        });
+      }
+    }
+
     const idempotencyKeyHash = hashIdempotencyKey(
       validateIdempotencyKey(rawIdempotencyKey),
     );
@@ -315,10 +360,12 @@ const MAX_PHOTO_BASE64_LENGTH = 1_500_000; // ~1MB binary payload
 function validateEvidence(
   rawText: unknown,
   rawPhoto: unknown,
+  rawCapturedAt?: unknown,
 ): {
   evidenceText: string;
   evidencePhoto: string | null;
   evidenceType: 'text' | 'photo' | 'both';
+  photoCapturedAt: Date | null;
 } {
   const hasText = typeof rawText === 'string' && rawText.trim().length > 0;
   const hasPhoto = typeof rawPhoto === 'string' && rawPhoto.trim().length > 0;
@@ -328,6 +375,14 @@ function validateEvidence(
       code: 'missing_evidence',
       message: 'You must provide either photo proof or a written reflection.',
     });
+  }
+
+  let photoCapturedAt: Date | null = null;
+  if (typeof rawCapturedAt === 'string' && rawCapturedAt.trim().length > 0) {
+    const parsed = new Date(rawCapturedAt.trim());
+    if (!isNaN(parsed.getTime())) {
+      photoCapturedAt = parsed;
+    }
   }
 
   let evidenceText = '';
@@ -375,12 +430,21 @@ function validateEvidence(
     }
 
     evidencePhoto = photoStr;
+
+    if (!photoCapturedAt && isJpeg) {
+      try {
+        const fullBuffer = Buffer.from(base64Data, 'base64');
+        photoCapturedAt = extractExifTimestamp(fullBuffer);
+      } catch {
+        // Non-blocking if EXIF extraction fails
+      }
+    }
   }
 
   const evidenceType: 'text' | 'photo' | 'both' =
     hasText && hasPhoto ? 'both' : hasPhoto ? 'photo' : 'text';
 
-  return { evidenceText, evidencePhoto, evidenceType };
+  return { evidenceText, evidencePhoto, evidenceType, photoCapturedAt };
 }
 
 function validateIdempotencyKey(value: string | undefined): string {

@@ -42,6 +42,7 @@ interface PublishRequest {
   poolDate: unknown;
   region?: unknown;
   model: unknown;
+  force?: unknown;
   quests: unknown;
 }
 
@@ -106,16 +107,17 @@ export class QuestPoolGenerationService {
     poolDate: string,
     now = new Date(),
     region: QuestRegion = 'Trinidad',
+    force = false,
   ): Promise<void> {
     if (poolDate !== getTrinidadDate(now)) return;
     const existing = await this.questPoolBatchModel
       .findOne({ region, poolDate })
       .lean()
       .exec();
-    if (existing?.status === 'published' || existing?.status === 'generating') return;
+    if (!force && (existing?.status === 'published' || existing?.status === 'generating')) return;
     if (existing) {
       await this.questPoolBatchModel.updateOne(
-        { _id: existing._id, status: 'failed' },
+        { _id: existing._id },
         { $set: { status: 'generating', startedAt: now, errorCode: null } },
       );
       return;
@@ -157,7 +159,7 @@ export class QuestPoolGenerationService {
       .findOne({ region, poolDate: today })
       .lean()
       .exec();
-    if (existing?.status === 'published') {
+    if (existing?.status === 'published' && !request.force) {
       return this.handleExistingBatch(existing, request.model, today);
     }
 
@@ -255,7 +257,7 @@ export class QuestPoolGenerationService {
     const batch = new this.questPoolBatchModel({
       _id: batchId,
       poolDate: today,
-      region: 'Trinidad',
+      region,
       status: 'generating',
       questCount: questDocs.length,
       model: request.model,
@@ -271,7 +273,7 @@ export class QuestPoolGenerationService {
       await session.withTransaction(async () => {
         if (existing) {
           await this.questPoolBatchModel.updateOne(
-            { _id: batchId, status: existing.status },
+            { _id: batchId },
             {
               $set: {
                 status: 'generating',
@@ -285,6 +287,7 @@ export class QuestPoolGenerationService {
             },
             { session },
           );
+          await this.questModel.deleteMany({ batchId }, { session });
         } else {
           await batch.save({ session });
         }
@@ -301,7 +304,7 @@ export class QuestPoolGenerationService {
     } catch (error) {
       if (isDuplicateKeyError(error)) {
         const racedBatch = await this.questPoolBatchModel
-          .findOne({ region: 'Trinidad', poolDate: today })
+          .findOne({ region, poolDate: today })
           .lean()
           .exec();
         if (racedBatch) {
@@ -360,19 +363,22 @@ function validatePoolRequest(raw: PublishRequest): {
   poolDate: string;
   region: QuestRegion;
   model: string;
+  force?: boolean;
   quests: GeneratedCandidate[];
 } {
   if (!isRecord(raw)) {
     throw invalidPool();
   }
   const hasRegion = Object.hasOwn(raw, 'region');
-  const expectedKeys = hasRegion
-    ? ['poolDate', 'region', 'model', 'quests']
-    : ['poolDate', 'model', 'quests'];
+  const hasForce = Object.hasOwn(raw, 'force');
+  const expectedKeys = ['poolDate', 'model', 'quests'];
+  if (hasRegion) expectedKeys.push('region');
+  if (hasForce) expectedKeys.push('force');
   if (!hasExactKeys(raw, expectedKeys)) {
     throw invalidPool();
   }
   const region: QuestRegion = raw.region === 'Tobago' ? 'Tobago' : 'Trinidad';
+  const force = raw.force === true;
   if (
     typeof raw.poolDate !== 'string' ||
     !/^\d{4}-\d{2}-\d{2}$/.test(raw.poolDate) ||
@@ -427,6 +433,7 @@ function validatePoolRequest(raw: PublishRequest): {
     poolDate: raw.poolDate as string,
     region,
     model: raw.model as string,
+    force,
     quests,
   };
 }

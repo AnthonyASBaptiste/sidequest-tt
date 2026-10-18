@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import ExifReader from 'exifreader';
 
 type Quest = {
   id: string;
@@ -254,7 +255,9 @@ function App() {
   const [evidence, setEvidence] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [photoCapturedAt, setPhotoCapturedAt] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedQuest, setExpandedQuest] = useState<string | null>(null);
   const [awayMode, setAwayMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -276,6 +279,21 @@ function App() {
     void loadBoard(newRegion);
   }
 
+  async function handleRefreshBoard() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const result = await apiRequest<QuestBoard>(`/quests/refresh?region=${selectedRegion}`, {
+        method: 'POST',
+      });
+      setBoard(result.data);
+    } catch (err) {
+      setError(friendlyError(err));
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -286,6 +304,39 @@ function App() {
     }
 
     setPhotoError(null);
+
+    // Extract EXIF metadata before canvas compression
+    let capturedIso: string | null = null;
+    try {
+      const buffer = await file.arrayBuffer();
+      const tags = ExifReader.load(buffer);
+      const dateTag = tags.DateTimeOriginal || tags.DateTimeDigitized || tags.DateTime;
+      if (dateTag && dateTag.description) {
+        const match = dateTag.description.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+        if (match) {
+          const [_, y, m, d, hr, min, sec] = match;
+          const capturedDate = new Date(Date.UTC(+y, +m - 1, +d, +hr, +min, +sec));
+          if (!isNaN(capturedDate.getTime())) {
+            capturedIso = capturedDate.toISOString();
+            // Client-side check: compare against quest acceptance date
+            if (acceptance) {
+              const acceptedTime = new Date(acceptance.acceptedAt).getTime();
+              // Allow photos captured anytime since acceptedAt, or up to 24h prior to acceptedAt
+              if (capturedDate.getTime() < acceptedTime - 24 * 60 * 60 * 1000) {
+                const acceptedDateStr = acceptance.acceptedAt.slice(0, 10);
+                setPhotoError(
+                  `Warning: This photo was taken on ${capturedIso.slice(0, 10)}, before this quest was accepted on ${acceptedDateStr}. Please use a photo taken during your quest.`,
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // EXIF not present or unreadable - non-blocking
+    }
+    setPhotoCapturedAt(capturedIso);
+
     try {
       const compressedDataUrl = await compressImage(file, 1280, 0.75);
       setPhotoPreview(compressedDataUrl);
@@ -304,6 +355,7 @@ function App() {
   function handlePhotoRemove() {
     setPhotoPreview(null);
     setPhotoBase64(null);
+    setPhotoCapturedAt(null);
     setPhotoError(null);
   }
 
@@ -401,22 +453,22 @@ function App() {
     let timeoutId: number;
     const refresh = async () => {
       try {
-        const result = await apiRequest<QuestBoard>('/quests/today');
+        const result = await apiRequest<QuestBoard>(`/quests/today?region=${selectedRegion}`);
         if (stopped) return;
         setBoard(result.data);
         if (result.data.generationRequested) {
-          timeoutId = window.setTimeout(refresh, 15_000);
+          timeoutId = window.setTimeout(refresh, 10_000);
         }
       } catch {
-        if (!stopped) timeoutId = window.setTimeout(refresh, 15_000);
+        if (!stopped) timeoutId = window.setTimeout(refresh, 10_000);
       }
     };
-    timeoutId = window.setTimeout(refresh, 15_000);
+    timeoutId = window.setTimeout(refresh, 10_000);
     return () => {
       stopped = true;
       window.clearTimeout(timeoutId);
     };
-  }, [board?.generationRequested]);
+  }, [board?.generationRequested, selectedRegion]);
 
   useEffect(() => {
     if (!submission || !acceptance || verification?.status !== 'pending') {
@@ -479,6 +531,7 @@ function App() {
       setEvidence('');
       setPhotoPreview(null);
       setPhotoBase64(null);
+      setPhotoCapturedAt(null);
       setPhotoError(null);
       setAwayMode(false);
       idempotencyKeyRef.current = null;
@@ -511,9 +564,14 @@ function App() {
     setSubmitting(true);
     setError(null);
     try {
-      const payload: { evidenceText?: string; evidencePhoto?: string } = {};
+      const payload: {
+        evidenceText?: string;
+        evidencePhoto?: string;
+        photoCapturedAt?: string;
+      } = {};
       if (trimmedEvidence) payload.evidenceText = trimmedEvidence;
       if (photoBase64) payload.evidencePhoto = photoBase64;
+      if (photoCapturedAt) payload.photoCapturedAt = photoCapturedAt;
 
       const result = await apiRequest<Submission>(
         `/acceptances/${acceptance.id}/submissions`,
@@ -539,6 +597,7 @@ function App() {
       setEvidence('');
       setPhotoPreview(null);
       setPhotoBase64(null);
+      setPhotoCapturedAt(null);
       setPhotoError(null);
       setAwayMode(false);
       startedPollingAtRef.current = Date.now();
@@ -605,9 +664,7 @@ function App() {
           </label>
           <div className="player-pill">
             <span className="player-dot" />
-            <span className="player-region">
-              {guest?.region ?? selectedRegion} explorer
-            </span>
+            <span className="player-region">Adventurer</span>
             <strong className="player-xp">
               {(guest?.xp ?? 0).toLocaleString()} XP
             </strong>
@@ -721,19 +778,31 @@ function App() {
 
                     {/* Photo Evidence Section */}
                     <div className="photo-evidence-section">
-                      <label className="photo-upload-label" htmlFor="photo-upload">
-                        📸 {photoPreview ? 'Change photo proof' : 'Add photo proof (recommended)'}
-                      </label>
-                      <input
-                        id="photo-upload"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        capture="environment"
-                        className="photo-input"
-                        onChange={handlePhotoSelect}
-                      />
-                      {photoError && <p className="photo-error">{photoError}</p>}
-                      {photoPreview && (
+                      {!photoPreview ? (
+                        <div className="photo-upload-actions">
+                          <label className="photo-upload-btn" htmlFor="photo-upload-camera">
+                            📷 Take photo
+                          </label>
+                          <input
+                            id="photo-upload-camera"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            capture="environment"
+                            className="photo-input"
+                            onChange={handlePhotoSelect}
+                          />
+                          <label className="photo-upload-btn photo-upload-btn-secondary" htmlFor="photo-upload-gallery">
+                            🖼️ Choose from library
+                          </label>
+                          <input
+                            id="photo-upload-gallery"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="photo-input"
+                            onChange={handlePhotoSelect}
+                          />
+                        </div>
+                      ) : (
                         <div className="photo-preview-container">
                           <img
                             src={photoPreview}
@@ -750,6 +819,7 @@ function App() {
                           </button>
                         </div>
                       )}
+                      {photoError && <p className="photo-error">{photoError}</p>}
                     </div>
 
                     <label className="visually-hidden" htmlFor="evidence">
@@ -898,9 +968,21 @@ function App() {
                   <p className="eyebrow">YOUR QUEST BOARD</p>
                   <h2>Choose your next adventure</h2>
                 </div>
-                <span className="pool-date">
-                  {formatPoolDate(board.poolDate)}
-                </span>
+                <div className="board-heading-side">
+                  <span className="pool-date">
+                    {formatPoolDate(board.poolDate)}
+                  </span>
+                  <button
+                    type="button"
+                    className="refresh-board-btn"
+                    onClick={handleRefreshBoard}
+                    disabled={refreshing || board.generationRequested}
+                    title="Request a fresh generation of today's quest pool"
+                    aria-label="Refresh quests"
+                  >
+                    <span className={refreshing ? 'spin-icon' : ''}>↻</span> Refresh Quests
+                  </button>
+                </div>
               </div>
               <div className="quest-list">
                 {board.quests.map((quest, index) => {

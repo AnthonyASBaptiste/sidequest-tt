@@ -74,6 +74,9 @@ export class PublishGeneratedQuestPoolDto {
   @ApiProperty({ example: 'gemma4:e2b-it-qat' })
   model!: string;
 
+  @ApiProperty({ example: false, required: false })
+  force?: boolean;
+
   @ApiProperty({ type: [GeneratedQuestCandidateDto], minItems: 5, maxItems: 10 })
   quests!: GeneratedQuestCandidateDto[];
 }

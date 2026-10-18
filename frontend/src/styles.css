@@ -395,11 +395,60 @@ a:focus-visible {
   letter-spacing: -0.04em;
 }
 
+.board-heading-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .pool-date {
   color: var(--muted);
   font-family: var(--mono);
   font-size: 10px;
   white-space: nowrap;
+}
+
+.refresh-board-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--green);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 120ms ease;
+  white-space: nowrap;
+}
+
+.refresh-board-btn:hover:not(:disabled) {
+  background: #edf3e4;
+  border-color: var(--green);
+  color: var(--green-dark);
+}
+
+.refresh-board-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.spin-icon {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .quest-list {
@@ -729,6 +778,47 @@ a:focus-visible {
 
 .photo-evidence-section {
   margin-bottom: 16px;
+}
+
+.photo-upload-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.photo-upload-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #edf3e4;
+  border: 1px dashed var(--green);
+  border-radius: 8px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 120ms ease;
+  justify-content: center;
+  text-align: center;
+}
+
+.photo-upload-btn:hover {
+  background: #e2ecd6;
+  border-color: var(--green-dark);
+}
+
+.photo-upload-btn-secondary {
+  background: #f7f9f5;
+  border-color: #c8d3c1;
+  color: var(--ink);
+}
+
+.photo-upload-btn-secondary:hover {
+  background: #edf3e4;
+  border-color: var(--green);
+  color: var(--green);
 }
 
 .photo-upload-label {

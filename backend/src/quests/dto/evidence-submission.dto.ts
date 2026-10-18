@@ -16,6 +16,13 @@ export class CreateEvidenceSubmissionDto {
     required: false,
   })
   evidencePhoto?: string;
+
+  @ApiProperty({
+    example: '2026-10-18T10:30:00.000Z',
+    description: 'Timestamp when the photo was originally captured (extracted from EXIF metadata).',
+    required: false,
+  })
+  photoCapturedAt?: string;
 }
 
 export class EvidenceSubmissionDto {

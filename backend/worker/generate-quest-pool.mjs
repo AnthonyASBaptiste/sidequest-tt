@@ -14,11 +14,13 @@ const config = loadRuntimeConfig(process.env);
 const args = process.argv.slice(2);
 let stopping = false;
 
-const specifiedRegion = optionValue(args, '--region') || null;
+const forceGeneration = args.includes('--force');
+const filteredArgs = args.filter((a) => a !== '--force');
+const specifiedRegion = optionValue(filteredArgs, '--region') || null;
 const targetRegions = specifiedRegion ? [specifiedRegion] : ['Trinidad', 'Tobago'];
 
-if (args[0] === '--preview') {
-  const outputPath = optionValue(args, '--out');
+if (filteredArgs[0] === '--preview') {
+  const outputPath = optionValue(filteredArgs, '--out');
   if (!outputPath) {
     throw new Error('--preview requires --out <file>.');
   }
@@ -30,15 +32,15 @@ if (args[0] === '--preview') {
   console.info(
     `Generated ${payload.quests.length} quest candidates for ${payload.region} (${payload.poolDate}) with ${config.gemmaModel} (provider=${config.provider}); preview saved to ${basename(outputPath)}. Nothing was published.`,
   );
-} else if (args[0] === '--publish-from') {
-  const inputPath = optionValue(args, '--publish-from');
+} else if (filteredArgs[0] === '--publish-from') {
+  const inputPath = optionValue(filteredArgs, '--publish-from');
   if (!inputPath) {
     throw new Error('--publish-from requires a JSON file path.');
   }
   const payload = JSON.parse(await readFile(resolve(inputPath), 'utf8'));
   validatePoolPayload(payload);
-  await publishPool(payload);
-} else if (args[0] === '--schedule' && args.length <= 3) {
+  await publishPool(payload, forceGeneration);
+} else if (filteredArgs[0] === '--schedule' && filteredArgs.length <= 3) {
   console.info(
     `Quest-pool worker started (provider=${config.provider}, model=${config.gemmaModel}); monitoring pools for ${targetRegions.join(', ')} every 30 seconds.`,
   );
@@ -55,24 +57,24 @@ if (args[0] === '--preview') {
     }
   }
   console.info('Quest-pool scheduler stopped.');
-} else if (args.length === 0 || (args.length === 2 && specifiedRegion)) {
+} else if (filteredArgs.length === 0 || (filteredArgs.length === 2 && specifiedRegion)) {
   for (const region of targetRegions) {
     try {
-      const payload = await generatePool(region);
-      await publishPool(payload);
+      const payload = await generatePool(region, false, forceGeneration);
+      await publishPool(payload, forceGeneration);
     } catch (error) {
       console.warn(`[PoolWorker] Could not generate pool for ${region}: ${error.message}`);
     }
   }
 } else {
   throw new Error(
-    'Usage: worker:generate-pool [--preview --out <file> [--region <Trinidad|Tobago>] | --publish-from <file> | --schedule [--region <Trinidad|Tobago>]].',
+    'Usage: worker:generate-pool [--force] [--preview --out <file> [--region <Trinidad|Tobago>] | --publish-from <file> | --schedule [--region <Trinidad|Tobago>]].',
   );
 }
 
-async function generatePool(region = 'Trinidad', isPreview = false) {
+async function generatePool(region = 'Trinidad', isPreview = false, force = false) {
   const templatesResponse = await fetchTemplates(region);
-  if (!isPreview && templatesResponse.poolAlreadyPublished) {
+  if (!isPreview && !force && templatesResponse.poolAlreadyPublished) {
     throw new Error(
       `A quest pool is already published for ${region} on ${templatesResponse.poolDate}; the existing pool was left unchanged.`,
     );
@@ -251,8 +253,9 @@ function parseGeneratedCandidates(content, templates) {
   try {
     const cleaned = cleanJsonContent(content);
     parsed = JSON.parse(cleaned);
-  } catch {
-    throw new Error('Gemma returned malformed structured quest content.');
+  } catch (err) {
+    console.error('[PoolWorker] Raw content that failed to parse:', content);
+    throw new Error(`Gemma returned malformed structured quest content: ${err.message}`);
   }
   if (
     !isRecord(parsed) ||
@@ -359,12 +362,13 @@ function validatePoolPayload(payload) {
   }
 }
 
-async function publishPool(payload) {
+async function publishPool(payload, force = false) {
   const apiModel = config.gemmaModel.replace(/\//g, ':');
   const apiPayload = {
     poolDate: payload.poolDate,
     ...(payload.region && payload.region !== 'Trinidad' ? { region: payload.region } : {}),
     model: apiModel,
+    ...(force ? { force: true } : {}),
     quests: payload.quests,
   };
   const response = await apiRequest('/internal/quest-pools/publish', {

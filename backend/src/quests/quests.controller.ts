@@ -108,6 +108,13 @@ export class QuestsController {
   @ApiUnauthorizedResponse({
     description: 'A valid guest session cookie is required.',
   })
+  getTodaysQuestBoard(
+    @Req() request: GuestAuthenticatedRequest,
+    @Query('region') region?: string,
+  ): Promise<TodayQuestBoardDto> {
+    return this.questsService.getTodaysQuestBoard(request.guestUserId, region);
+  }
+
   @Post('refresh')
   @UseGuards(GuestSessionGuard)
   @HttpCode(200)
@@ -123,12 +130,5 @@ export class QuestsController {
     @Query('region') region?: string,
   ): Promise<TodayQuestBoardDto> {
     return this.questsService.refreshTodaysQuestBoard(request.guestUserId, region);
-  }
-
-  getTodaysQuestBoard(
-    @Req() request: GuestAuthenticatedRequest,
-    @Query('region') region?: string,
-  ): Promise<TodayQuestBoardDto> {
-    return this.questsService.getTodaysQuestBoard(request.guestUserId, region);
   }
 }

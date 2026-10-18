@@ -86,14 +86,15 @@ export class SubmissionsService {
 
     if (photoCapturedAt) {
       const capturedMs = photoCapturedAt.getTime();
-      const acceptedMs = ownedAcceptance.acceptedAt.getTime();
+      const acceptedDate = new Date(ownedAcceptance.acceptedAt);
+      const acceptedMs = acceptedDate.getTime();
       // Compare against the quest acceptance timestamp:
       // Allow photo captured anytime during the active quest period (since acceptedAt),
       // as well as up to 24 hours before acceptance (to accommodate taking the photo while out before clicking accept in the app).
       // Reject photos older than 24 hours before the acceptance timestamp.
       if (capturedMs < acceptedMs - MAX_PHOTO_AGE_MS) {
         const capturedDateStr = photoCapturedAt.toISOString().slice(0, 10);
-        const acceptedDateStr = ownedAcceptance.acceptedAt.toISOString().slice(0, 10);
+        const acceptedDateStr = acceptedDate.toISOString().slice(0, 10);
         throw new BadRequestException({
           code: 'photo_timestamp_expired',
           message: `This photo was captured on ${capturedDateStr}, before this quest was accepted on ${acceptedDateStr}. Please submit a photo taken during your quest.`,

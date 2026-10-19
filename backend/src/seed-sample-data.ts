@@ -258,24 +258,6 @@ async function seedSampleData(): Promise<void> {
     const questModel = app.get<Model<Quest>>(getModelToken(Quest.name));
 
     const poolDate = currentTrinidadDate();
-    const batchId = stableObjectId(`sidequest-sample-pool-${poolDate}`);
-    const existingBatch = await batchModel
-      .findOne({ region: 'Trinidad', poolDate })
-      .lean();
-
-    if (existingBatch && existingBatch._id.toString() !== batchId.toString()) {
-      throw new Error(
-        `A different Trinidad quest pool already exists for ${poolDate}; refusing to modify it.`,
-      );
-    }
-
-    if (existingBatch?.status === 'published') {
-      console.log(
-        `A published pool already exists for ${poolDate}; no sample data was changed.`,
-      );
-      return;
-    }
-
     const now = new Date();
     const promptVersion = 'sample-seed-v1';
     const templates = SAMPLE_QUESTS.map((sample) => {
@@ -300,6 +282,11 @@ async function seedSampleData(): Promise<void> {
     for (const template of templates) {
       if (!(await templateModel.exists({ _id: template._id }))) {
         await template.save();
+      } else {
+        await templateModel.updateOne(
+          { _id: template._id },
+          { $addToSet: { allowedRegions: { $each: ['Trinidad', 'Tobago'] } } },
+        );
       }
     }
 

@@ -25,31 +25,34 @@ export function validateEnvironment(
     throw new Error('PORT must be an integer between 1 and 65535.');
   }
 
-  const databaseName = environment.MONGODB_DB_NAME;
-  if (databaseName !== undefined && typeof databaseName !== 'string') {
-    throw new Error('MONGODB_DB_NAME must be a string when provided.');
+  const databaseName = environment.MONGODB_DB_NAME ?? 'sidequest';
+  if (typeof databaseName !== 'string' || databaseName.trim().length === 0) {
+    throw new Error('MONGODB_DB_NAME must be a non-empty string when provided.');
   }
 
-  const frontendOrigin = environment.FRONTEND_ORIGIN;
-  if (frontendOrigin !== undefined) {
-    if (typeof frontendOrigin !== 'string') {
+  const rawFrontendOrigin = environment.FRONTEND_ORIGIN;
+  let frontendOrigin: string | undefined;
+  if (rawFrontendOrigin !== undefined && rawFrontendOrigin !== '') {
+    if (typeof rawFrontendOrigin !== 'string') {
       throw new Error('FRONTEND_ORIGIN must be a single exact origin.');
     }
 
+    const normalizedFrontendOrigin = rawFrontendOrigin.trim().replace(/\/+$/, '');
     let parsedOrigin: URL;
     try {
-      parsedOrigin = new URL(frontendOrigin);
+      parsedOrigin = new URL(normalizedFrontendOrigin);
     } catch {
       throw new Error('FRONTEND_ORIGIN must be a valid exact origin.');
     }
 
     if (
-      parsedOrigin.origin !== frontendOrigin ||
+      parsedOrigin.origin !== normalizedFrontendOrigin ||
       parsedOrigin.username ||
       parsedOrigin.password
     ) {
       throw new Error('FRONTEND_ORIGIN must be a single exact origin without a path.');
     }
+    frontendOrigin = parsedOrigin.origin;
   }
 
   const workerSecret = environment.VERIFICATION_WORKER_SECRET;

@@ -5,8 +5,8 @@ import { validateEnvironment } from './environment.js';
 import { GUEST_SESSION_COOKIE } from './sessions/guest-session.constants.js';
 
 async function bootstrap(): Promise<void> {
-  const environment = validateEnvironment(process.env);
   const app = await NestFactory.create(AppModule);
+  const environment = validateEnvironment(process.env);
   app.setGlobalPrefix('api');
   if (environment.FRONTEND_ORIGIN) {
     app.enableCors({

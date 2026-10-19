@@ -35,9 +35,14 @@ export function loadRuntimeConfig(environment = process.env) {
     );
   }
 
+  const rawUseNvidia = environment.USE_NVIDIA;
+  const useNvidia = rawUseNvidia !== undefined
+    ? ['true', '1', 'yes'].includes(String(rawUseNvidia).trim().toLowerCase())
+    : true; // NVIDIA is default
+
   const nvidiaApiKey = environment.NVIDIA_API_KEY?.trim();
   const hasNvidiaKey = Boolean(nvidiaApiKey && nvidiaApiKey.length > 0);
-  const provider = hasNvidiaKey ? 'nvidia' : 'ollama';
+  const provider = useNvidia && hasNvidiaKey ? 'nvidia' : 'ollama';
 
   let gemmaModel;
   let baseUrl;

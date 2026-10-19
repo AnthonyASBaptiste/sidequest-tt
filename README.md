@@ -29,41 +29,54 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    U[User] --> UI[React + Vite UI]
-    UI -->|HTTPS| API[NestJS API on Render]
+    U[User] --> UI[React + Vite UI on Vercel]
+    UI -->|HTTPS /api| API[NestJS API on Render / Local]
     API --> DB[MongoDB Atlas - player and game state]
-    HS[Home server: daily Gemma job] -->|Pool submission over HTTPS| API
+    HS[Home server / Worker daemon] -->|Fetch templates & publish pool| API
     HS -->|Poll for verification jobs| API
     HS -->|Post signed verification result| API
-    HS --> GM[Local open-weight Gemma model]
+    HS --> AI{USE_NVIDIA?}
+    AI -->|true (default)| NV[NVIDIA NIM Cloud API\nGoogle Gemma 2 27B & Llama 3.2 Vision]
+    AI -->|false| LOC[Local Ollama / Gemma Runtime]
 ```
 
-Gemma generates one shared pool of 5–10 quests daily from reviewed templates.
-The home server sends the pool to Render and polls for verification jobs; it
-never connects directly to Atlas. Players cannot reroll. If today's generation
-fails, the app shows the most recently published pool with its date. If no
-pool has been published yet, the board shows an unavailable state. A quest
-completed today or yesterday is marked but can be tried again; XP is awarded
-only once for each player and quest instance. The player header shows the
-server-reported total XP, updated when verification completes. The MVP uses
-guest accounts and awards 25, 50, or 100 XP by rarity. Voice, levels, and
-Tobago selection are deferred.
-MongoDB Atlas persists game state through the API.
+Gemma generates a shared daily quest pool for Trinidad and Tobago from curated
+regional templates enriched with live seasonal events. The home server or
+background worker communicates with the NestJS API over HTTPS to fetch templates,
+run AI generation, and poll for quest verification submissions; it never connects
+directly to MongoDB Atlas. 
+
+### Model Provider Configuration (`USE_NVIDIA`)
+
+SideQuest T&T supports both cloud-accelerated inference via NVIDIA NIM and local
+open-weight model execution via Ollama. This is controlled by the `USE_NVIDIA`
+environment flag in `backend/worker/.env`:
+
+- **NVIDIA NIM (Default, `USE_NVIDIA=true`)**: Uses NVIDIA NIM cloud endpoints
+  with Google Gemma 2 27B (`google/gemma-2-27b-it`) for rich quest generation and
+  multimodal vision models (`meta/llama-3.2-11b-vision-instruct`) for photo proof
+  verification. Requires `NVIDIA_API_KEY`.
+- **Local Ollama (`USE_NVIDIA=false`)**: Falls back to your local Ollama runtime
+  (e.g., `gemma4:e2b-it-qat` or local Gemma instance) running on the host machine.
+
+### Regional Support & Live Seasonality
+
+- **Trinidad & Tobago Regions**: Players can select their island (Trinidad or
+  Tobago). Each island maintains its own distinct daily quest pool, templates,
+  and seasonal context (such as Tobago Carnival, Heritage Festival, or local cultural
+  milestones).
+- **Photo & Roll Evidence Verification**: Quest submissions accept live camera
+  photos as well as camera roll uploads, with automated photo EXIF timestamp
+  validation against quest acceptance dates to prevent stale photo re-use.
 
 ## Project status
 
-The NestJS API now supports guest sessions, the Trinidad quest board,
-acceptance, text evidence, worker verification, and server-authoritative XP.
-The home-server verification worker has completed real local and hosted
-Gemma inference using `gemma4:e2b-it-qat`. The repository now also contains a
-daily quest-pool generator: Gemma produces candidates from the reviewed
-templates, while the NestJS API validates and publishes the pool. A real
-five-quest generation was published and read back from the development Atlas
-database; the temporary data was then cleaned up. Today's hosted pool remains
-the original seed because it already has player activity. A small React/Vite player flow is available in `frontend/`
-and hosted on Vercel; the API is hosted on Render. Vercel proxies `/api/*` to
-the Render API so the browser uses a same-origin guest cookie, including on
-mobile browsers with strict third-party cookie handling.
+The NestJS API supports guest sessions, island-specific quest boards (Trinidad
+and Tobago), dynamic pool refreshing, text and photo evidence submission, EXIF
+date verification, worker verification, and server-authoritative XP. The
+background worker runs continuously or as a scheduled systemd service to generate
+daily pools and verify quest submissions. A responsive React/Vite player flow is
+hosted on Vercel with same-origin `/api` proxying.
 
 ## Run locally
 
